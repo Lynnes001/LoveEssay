@@ -76,4 +76,20 @@ jobs:
 
             sudo systemctl is-active loveessay
             sudo systemctl is-active nginx
-            curl -sS --fail http://127.0.0.1:6789/api/health
+
+            ok=0
+            for i in $(seq 1 15); do
+              if curl -sS --fail -u "${BASIC_AUTH_USER}:${BASIC_AUTH_PASS}" http://127.0.0.1:6788/api/health > /dev/null; then
+                ok=1
+                break
+              fi
+              sleep 2
+            done
+
+            if [ "$ok" -ne 1 ]; then
+              echo "健康检查失败，输出服务诊断信息..."
+              sudo systemctl status loveessay --no-pager || true
+              sudo journalctl -u loveessay -n 120 --no-pager || true
+              sudo systemctl status nginx --no-pager || true
+              exit 1
+            fi
