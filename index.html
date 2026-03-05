@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文书润色助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .header p {
+            margin-top: 8px;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .form {
+            padding: 30px 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+
+        .form-group .hint {
+            margin-top: 6px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e5e7eb;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error-msg {
+            display: none;
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .error-msg.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎓 文书润色助手</h1>
+            <p>输入学生信息，获取专业文书润色建议</p>
+        </div>
+
+        <div class="form" id="formContainer">
+            <div class="error-msg" id="errorMsg"></div>
+
+            <div class="form-group">
+                <label for="school_name">目标学校名称</label>
+                <input type="text" id="school_name" name="school_name" placeholder="例如：斯坦福大学" required>
+            </div>
+
+            <div class="form-group">
+                <label for="student_info_str">学生信息（包含所有经历、奖项、兴趣等）</label>
+                <textarea id="student_info_str" name="student_info_str" placeholder="请详细填写学生的背景信息、活动经历、获奖情况、兴趣爱好等，越详细越好..." required></textarea>
+                <p class="hint">建议填写完整的个人经历描述</p>
+            </div>
+
+            <div class="form-group">
+                <label for="query">润色要求（可选）</label>
+                <input type="text" id="query" name="query" placeholder="例如：突出领导力，强调科研经历">
+                <p class="hint">如有特殊要求请填写，如无需留空</p>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">提交申请</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>正在提交，请稍候...</p>
+            <p style="margin-top: 8px; font-size: 12px; color: #6b7280;">AI正在润色您的文书</p>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('formContainer');
+        const submitBtn = document.getElementById('submitBtn');
+        const loading = document.getElementById('loading');
+        const errorMsg = document.getElementById('errorMsg');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const school_name = document.getElementById('school_name').value.trim();
+            const student_info_str = document.getElementById('student_info_str').value.trim();
+            const query = document.getElementById('query').value.trim();
+
+            if (!school_name || !student_info_str) {
+                showError('请填写学校名称和学生信息');
+                return;
+            }
+
+            showLoading(true);
+            hideError();
+
+            // 构建请求参数并跳转结果页进行流式渲染
+            const params = {
+                school_name,
+                student_info_str,
+                query: query || '请润色以下文书'
+            };
+
+            sessionStorage.removeItem('essay_result');
+            sessionStorage.setItem('essay_params', JSON.stringify(params));
+            window.location.href = 'result.html';
+        });
+
+        function showLoading(show) {
+            form.style.display = show ? 'none' : 'block';
+            loading.classList.toggle('active', show);
+        }
+
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.classList.add('active');
+        }
+
+        function hideError() {
+            errorMsg.classList.remove('active');
+        }
+    </script>
+</body>
+</html>

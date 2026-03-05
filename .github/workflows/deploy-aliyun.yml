@@ -1,0 +1,69 @@
+name: Deploy To Aliyun ECS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-aliyun-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Upload project files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ secrets.ALIYUN_USER }}
+          key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.ALIYUN_SSH_PORT }}
+          source: "."
+          target: "/root/LoveEssay"
+          overwrite: true
+          rm: false
+          strip_components: 0
+
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+          BASIC_AUTH_USER: ${{ secrets.BASIC_AUTH_USER }}
+          BASIC_AUTH_PASS: ${{ secrets.BASIC_AUTH_PASS }}
+          WORKFLOW_APP_ID: ${{ secrets.WORKFLOW_APP_ID }}
+        with:
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ secrets.ALIYUN_USER }}
+          key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.ALIYUN_SSH_PORT }}
+          envs: DASHSCOPE_API_KEY,BASIC_AUTH_USER,BASIC_AUTH_PASS,WORKFLOW_APP_ID
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /root/LoveEssay
+            chmod +x deploy.sh scripts/deploy_server.sh
+
+            mkdir -p /etc/loveessay
+            cat > /etc/loveessay/loveessay.env <<EOT
+            DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+            PORT=6789
+            WORKFLOW_APP_ID=${WORKFLOW_APP_ID}
+            RATE_LIMIT_PER_MINUTE=30
+            BASIC_AUTH_USER=${BASIC_AUTH_USER}
+            BASIC_AUTH_PASS=${BASIC_AUTH_PASS}
+            EOT
+            chmod 600 /etc/loveessay/loveessay.env
+
+            ./deploy.sh
+
+            systemctl is-active loveessay
+            systemctl is-active nginx
+            curl -sS --fail http://127.0.0.1:6789/api/health

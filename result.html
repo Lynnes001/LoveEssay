@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>润色结果 - 文书润色助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .info-bar {
+            background: #f3f4f6;
+            padding: 12px 20px;
+            font-size: 14px;
+            color: #6b7280;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .info-bar strong {
+            color: #333;
+        }
+
+        .metrics-bar {
+            background: #eef2ff;
+            padding: 10px 20px;
+            font-size: 13px;
+            color: #4b5563;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .content {
+            padding: 30px 20px;
+        }
+
+        .result-section {
+            margin-bottom: 30px;
+        }
+
+        .result-section h2 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .result-content {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            line-height: 1.8;
+            color: #374151;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            flex: 1;
+            min-width: 150px;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .error-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #dc2626;
+        }
+
+        .error-state h2 {
+            margin-bottom: 12px;
+        }
+
+        .copy-success {
+            display: none;
+            background: #d1fae5;
+            color: #065f46;
+            padding: 10px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .copy-success.active {
+            display: block;
+        }
+
+        @media (max-width: 600px) {
+            .actions {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎓 文书润色结果</h1>
+        </div>
+
+        <div class="info-bar" id="infoBar">
+            加载中...
+        </div>
+        <div class="metrics-bar" id="metricsBar">
+            状态: 准备中 | 首字耗时: - | 总耗时: -
+        </div>
+
+        <div class="content">
+            <div class="copy-success" id="copySuccess">✅ 已复制到剪贴板</div>
+
+            <div id="resultContainer">
+                <div class="result-section">
+                    <h2>润色后的文书</h2>
+                    <div class="result-content" id="resultContent">
+                        加载中...
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button class="btn btn-danger" id="stopBtn" onclick="stopStream()" disabled>停止生成</button>
+                    <button class="btn btn-primary" onclick="copyResult()">复制结果</button>
+                    <a href="index.html" class="btn btn-secondary">重新申请</a>
+                </div>
+            </div>
+
+            <div class="error-state" id="errorState" style="display: none;">
+                <h2>无法加载结果</h2>
+                <p>请返回首页重新提交</p>
+                <a href="index.html" class="btn btn-primary" style="display: inline-block; margin-top: 20px;">返回首页</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const STREAM_API_URL = '/api/polish/stream';
+        const resultContentEl = document.getElementById('resultContent');
+        const infoBarEl = document.getElementById('infoBar');
+        const metricsBarEl = document.getElementById('metricsBar');
+        const stopBtnEl = document.getElementById('stopBtn');
+
+        let paramsData = null;
+        let streamController = null;
+        let stopRequested = false;
+        let streamStartedAt = 0;
+        let firstTokenAt = 0;
+        let metricsTimer = null;
+
+        try {
+            const paramsStr = sessionStorage.getItem('essay_params');
+            if (paramsStr) {
+                paramsData = JSON.parse(paramsStr);
+            }
+        } catch (e) {
+            console.error('解析参数失败:', e);
+        }
+
+        function showError(msg) {
+            if (msg) {
+                alert(msg);
+            }
+            document.getElementById('resultContainer').style.display = 'none';
+            document.getElementById('errorState').style.display = 'block';
+        }
+
+        function formatDuration(ms) {
+            if (!ms || ms < 0) {
+                return '-';
+            }
+            return `${(ms / 1000).toFixed(1)}s`;
+        }
+
+        function renderMetrics(statusText) {
+            const now = Date.now();
+            const total = streamStartedAt ? now - streamStartedAt : 0;
+            const first = firstTokenAt ? firstTokenAt - streamStartedAt : 0;
+            metricsBarEl.textContent = `状态: ${statusText} | 首字耗时: ${formatDuration(first)} | 总耗时: ${formatDuration(total)}`;
+        }
+
+        function startMetrics() {
+            clearInterval(metricsTimer);
+            renderMetrics('生成中');
+            metricsTimer = setInterval(() => renderMetrics('生成中'), 300);
+        }
+
+        function stopMetrics(statusText) {
+            clearInterval(metricsTimer);
+            renderMetrics(statusText);
+        }
+
+        function setStopEnabled(enabled) {
+            stopBtnEl.disabled = !enabled;
+        }
+
+        function copyResult() {
+            const content = document.getElementById('resultContent').textContent;
+            navigator.clipboard.writeText(content).then(() => {
+                const successEl = document.getElementById('copySuccess');
+                successEl.classList.add('active');
+                setTimeout(() => {
+                    successEl.classList.remove('active');
+                }, 2000);
+            }).catch(err => {
+                console.error('复制失败:', err);
+                alert('复制失败，请手动复制');
+            });
+        }
+
+        function normalizeFinalText(text) {
+            if (typeof text !== 'string') {
+                return '';
+            }
+            const trimmed = text.trim();
+            if (!trimmed) {
+                return '';
+            }
+            try {
+                const parsed = JSON.parse(trimmed);
+                if (parsed && typeof parsed === 'object') {
+                    if (typeof parsed.res === 'string' && parsed.res.trim()) {
+                        return parsed.res;
+                    }
+                    if (typeof parsed.text === 'string' && parsed.text.trim()) {
+                        return parsed.text;
+                    }
+                    if (typeof parsed.content === 'string' && parsed.content.trim()) {
+                        return parsed.content;
+                    }
+                }
+            } catch (e) {
+                // keep original text
+            }
+            return text;
+        }
+
+        function extractEventText(output) {
+            if (!output || typeof output !== 'object') {
+                return '';
+            }
+            if (
+                output.workflow_message &&
+                output.workflow_message.message &&
+                typeof output.workflow_message.message.content === 'string'
+            ) {
+                return output.workflow_message.message.content;
+            }
+            if (typeof output.text === 'string') {
+                return output.text;
+            }
+            return '';
+        }
+
+        function stopStream() {
+            stopRequested = true;
+            if (streamController) {
+                streamController.abort();
+            }
+            setStopEnabled(false);
+        }
+
+        async function streamResult() {
+            if (!paramsData) {
+                showError('未找到提交参数，请返回首页重新提交');
+                return;
+            }
+
+            infoBarEl.innerHTML = `目标学校: <strong>${paramsData.school_name}</strong>`;
+            resultContentEl.textContent = '正在生成中，请稍候...\n\n';
+            stopRequested = false;
+            streamStartedAt = Date.now();
+            firstTokenAt = 0;
+            startMetrics();
+            setStopEnabled(true);
+            streamController = new AbortController();
+
+            const response = await fetch(STREAM_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(paramsData),
+                signal: streamController.signal
+            });
+
+            if (!response.ok) {
+                throw new Error(`请求失败: ${response.status}`);
+            }
+            if (!response.body) {
+                throw new Error('流式响应为空');
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let hasContent = false;
+            let finalText = '';
+
+            function appendText(chunk) {
+                if (!chunk) {
+                    return;
+                }
+                if (!firstTokenAt) {
+                    firstTokenAt = Date.now();
+                }
+                if (!hasContent) {
+                    resultContentEl.textContent = '';
+                    hasContent = true;
+                }
+                resultContentEl.textContent += chunk;
+            }
+
+            function handleEventBlock(block) {
+                if (!block.trim()) {
+                    return;
+                }
+                const lines = block.split(/\r?\n/);
+                let eventType = 'message';
+                const dataLines = [];
+                for (const line of lines) {
+                    if (line.startsWith('event:')) {
+                        eventType = line.slice(6).trim();
+                    } else if (line.startsWith('data:')) {
+                        dataLines.push(line.slice(5).trimStart());
+                    }
+                }
+                if (!dataLines.length) {
+                    return;
+                }
+                const data = dataLines.join('\n');
+                if (!data || data === '[DONE]') {
+                    return;
+                }
+
+                let payload;
+                try {
+                    payload = JSON.parse(data);
+                } catch (e) {
+                    return;
+                }
+
+                if (eventType === 'error' || payload.error) {
+                    throw new Error(payload.error || '流式返回错误');
+                }
+
+                const output = payload.output || {};
+                const finishReason = output.finish_reason || output.finishReason || '';
+                const eventText = extractEventText(output);
+
+                if (finishReason === 'stop') {
+                    const normalized = normalizeFinalText(eventText);
+                    finalText = normalized || finalText;
+                    return;
+                }
+                appendText(eventText);
+            }
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) {
+                    break;
+                }
+                buffer += decoder.decode(value, { stream: true });
+                let sepIndex = buffer.indexOf('\n\n');
+                while (sepIndex !== -1) {
+                    const block = buffer.slice(0, sepIndex);
+                    buffer = buffer.slice(sepIndex + 2);
+                    handleEventBlock(block);
+                    sepIndex = buffer.indexOf('\n\n');
+                }
+            }
+
+            if (finalText) {
+                resultContentEl.textContent = finalText;
+            }
+            if (!resultContentEl.textContent.trim()) {
+                throw new Error('未收到有效文本结果');
+            }
+
+            sessionStorage.setItem('essay_result', JSON.stringify({ text: resultContentEl.textContent }));
+            stopMetrics('已完成');
+            setStopEnabled(false);
+            streamController = null;
+        }
+
+        (async function init() {
+            try {
+                await streamResult();
+            } catch (error) {
+                setStopEnabled(false);
+                streamController = null;
+                if (stopRequested || (error && error.name === 'AbortError')) {
+                    if (!resultContentEl.textContent.trim()) {
+                        resultContentEl.textContent = '已停止生成';
+                    } else {
+                        resultContentEl.textContent += '\n\n[已停止生成]';
+                    }
+                    stopMetrics('已停止');
+                    return;
+                }
+                stopMetrics('失败');
+                console.error('流式渲染失败:', error);
+                showError(error.message || '流式渲染失败，请重试');
+            }
+        })();
+    </script>
+</body>
+</html>
