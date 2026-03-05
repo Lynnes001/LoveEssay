@@ -48,11 +48,21 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
+            if [ -z "${DASHSCOPE_API_KEY:-}" ] || [ -z "${WORKFLOW_APP_ID:-}" ] || [ -z "${BASIC_AUTH_USER:-}" ] || [ -z "${BASIC_AUTH_PASS:-}" ]; then
+              echo "缺少必填 GitHub Secrets: DASHSCOPE_API_KEY / WORKFLOW_APP_ID / BASIC_AUTH_USER / BASIC_AUTH_PASS"
+              exit 1
+            fi
+
+            if [ "${BASIC_AUTH_PASS}" = "change-me" ]; then
+              echo "BASIC_AUTH_PASS 不能为默认值 change-me"
+              exit 1
+            fi
+
             cd /root/LoveEssay
             chmod +x deploy.sh scripts/deploy_server.sh
 
-            mkdir -p /etc/loveessay
-            cat > /etc/loveessay/loveessay.env <<EOT
+            sudo mkdir -p /etc/loveessay
+            sudo tee /etc/loveessay/loveessay.env > /dev/null <<EOT
             DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
             PORT=6789
             WORKFLOW_APP_ID=${WORKFLOW_APP_ID}
@@ -60,10 +70,10 @@ jobs:
             BASIC_AUTH_USER=${BASIC_AUTH_USER}
             BASIC_AUTH_PASS=${BASIC_AUTH_PASS}
             EOT
-            chmod 600 /etc/loveessay/loveessay.env
+            sudo chmod 600 /etc/loveessay/loveessay.env
 
-            ./deploy.sh
+            sudo ./deploy.sh
 
-            systemctl is-active loveessay
-            systemctl is-active nginx
+            sudo systemctl is-active loveessay
+            sudo systemctl is-active nginx
             curl -sS --fail http://127.0.0.1:6789/api/health
