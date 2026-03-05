@@ -206,6 +206,7 @@
 
     <script>
         const STREAM_API_URL = '/api/polish/stream';
+        const FALLBACK_API_URL = '/api/polish';
         const resultContentEl = document.getElementById('resultContent');
         const infoBarEl = document.getElementById('infoBar');
         const metricsBarEl = document.getElementById('metricsBar');
@@ -445,7 +446,21 @@
                 resultContentEl.textContent = finalText;
             }
             if (!resultContentEl.textContent.trim()) {
-                throw new Error('未收到有效文本结果');
+                const fallbackResp = await fetch(FALLBACK_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(paramsData)
+                });
+                const fallbackData = await fallbackResp.json().catch(() => ({}));
+                if (!fallbackResp.ok) {
+                    throw new Error(fallbackData.error || `回退请求失败: ${fallbackResp.status}`);
+                }
+                if (!fallbackData.text || !String(fallbackData.text).trim()) {
+                    throw new Error('未收到有效文本结果');
+                }
+                resultContentEl.textContent = fallbackData.text;
             }
 
             sessionStorage.setItem('essay_result', JSON.stringify({ text: resultContentEl.textContent }));
