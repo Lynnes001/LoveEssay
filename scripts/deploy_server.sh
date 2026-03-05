@@ -77,6 +77,7 @@ fi
 
 AUTH_HASH="$(openssl passwd -apr1 "$BASIC_AUTH_PASS")"
 printf "%s:%s\n" "$BASIC_AUTH_USER" "$AUTH_HASH" > /etc/nginx/.loveessay_htpasswd
+chown root:www-data /etc/nginx/.loveessay_htpasswd
 chmod 640 /etc/nginx/.loveessay_htpasswd
 
 cp -f "$APP_DIR/deploy/nginx.loveessay.conf" /etc/nginx/sites-available/loveessay
