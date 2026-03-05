@@ -124,10 +124,26 @@ function normalizeText(text) {
   return trimmed;
 }
 
+function buildPrompt(payload) {
+  return [
+    `目标学校：${payload.school_name}`,
+    '',
+    '学生信息：',
+    payload.student_info_str,
+    '',
+    `润色要求：${payload.query}`
+  ].join('\n');
+}
+
 function buildAppRequestBody(payload, stream) {
   return {
     input: {
-      prompt: payload.query,
+      prompt: buildPrompt(payload),
+      biz_params: {
+        school_name: payload.school_name,
+        student_info_str: payload.student_info_str,
+        query: payload.query
+      },
       school_name: payload.school_name,
       student_info_str: payload.student_info_str,
       query: payload.query
