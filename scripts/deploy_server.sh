@@ -90,5 +90,5 @@ ufw allow 6788/tcp 2>/dev/null || true
 
 echo "部署完成。请验证："
 echo "1) systemctl status loveessay"
-echo "2) curl http://127.0.0.1:6789/api/health"
-echo "3) curl http://<server-ip>:6788"
+echo "2) curl http://localhost:6789/api/health"
+echo "3) curl http://<server-host>:6788"

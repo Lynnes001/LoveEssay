@@ -35,11 +35,9 @@ export DASHSCOPE_API_KEY="your-real-key"
 npm start
 ```
 
-默认端口：`6789`
-
 本地访问：
-- 页面：[http://127.0.0.1:6789](http://127.0.0.1:6789)
-- 健康检查：[http://127.0.0.1:6789/api/health](http://127.0.0.1:6789/api/health)
+- 页面：`http://localhost:<本地服务端口>`
+- 健康检查：`http://localhost:<本地服务端口>/api/health`
 
 ## API
 
@@ -88,14 +86,14 @@ sudo ./deploy.sh
 - 创建环境文件 `/etc/loveessay/loveessay.env`
 - 注册并启动 `loveessay` systemd 服务
 - 生成 Nginx Basic Auth 密码文件 `/etc/nginx/.loveessay_htpasswd`
-- 配置 Nginx 监听 `6788`（HTTP），并代理 `/api/` 到 `127.0.0.1:6789`
+- 配置 Nginx 作为公网入口，并代理 `/api/` 到本机 Node 服务
 
 ## 环境变量
 
 参考 `.env.example`，核心变量：
 - `DASHSCOPE_API_KEY`：百炼 Key（仅服务器保存）
 - `WORKFLOW_APP_ID`：应用 ID
-- `PORT`：代理服务端口，默认 `6789`
+- `PORT`：代理服务端口（按部署环境配置）
 - `RATE_LIMIT_PER_MINUTE`：单 IP 每分钟请求上限
 - `BASIC_AUTH_USER`：页面/API 访问用户名
 - `BASIC_AUTH_PASS`：页面/API 访问密码
@@ -115,9 +113,9 @@ sudo ./deploy.sh
 - 手动触发 `workflow_dispatch`
 
 请在 GitHub 仓库 `Settings -> Secrets and variables -> Actions` 中配置以下 Secrets：
-- `ALIYUN_HOST`：服务器公网 IP（例如 `8.137.71.205`）
+- `ALIYUN_HOST`：服务器地址（域名或主机名）
 - `ALIYUN_USER`：SSH 用户（通常 `root`）
-- `ALIYUN_SSH_PORT`：SSH 端口（默认 `22`）
+- `ALIYUN_SSH_PORT`：SSH 连接端口
 - `ALIYUN_SSH_PRIVATE_KEY`：用于登录服务器的私钥全文（PEM）
 - `DASHSCOPE_API_KEY`：百炼 API Key
 - `WORKFLOW_APP_ID`：应用 ID（例如 `6e42604f098e49de9ac0536571b47926`）
