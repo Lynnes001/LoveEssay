@@ -127,3 +127,4 @@ sudo ./deploy.sh
 - 更新 `/etc/loveessay/loveessay.env`
 - 执行 `./deploy.sh`
 - 检查 `loveessay/nginx` 状态并做本地健康检查
+
