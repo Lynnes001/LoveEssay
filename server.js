@@ -143,10 +143,7 @@ function buildAppRequestBody(payload, stream) {
         school_name: payload.school_name,
         student_info_str: payload.student_info_str,
         query: payload.query
-      },
-      school_name: payload.school_name,
-      student_info_str: payload.student_info_str,
-      query: payload.query
+      }
     },
     parameters: stream
       ? {
@@ -240,6 +237,15 @@ app.post('/api/polish/stream', rateLimit, async (req, res) => {
   const timeout = setTimeout(() => controller.abort(), 240000);
   const upstreamUrl = `https://dashscope.aliyuncs.com/api/v1/apps/${WORKFLOW_APP_ID}/completion`;
 
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  if (typeof res.flushHeaders === 'function') {
+    res.flushHeaders();
+  }
+  res.write('event: status\ndata: {"status":"connecting","message":"已发起请求，正在连接阿里云工作流..."}\n\n');
+
   res.on('close', () => {
     if (!res.writableEnded) {
       controller.abort();
@@ -260,21 +266,16 @@ app.post('/api/polish/stream', rateLimit, async (req, res) => {
 
     if (!upstreamResp.ok) {
       const raw = await upstreamResp.json().catch(() => ({}));
+      const requestId = raw.request_id || raw.requestId;
       const message =
         (raw && raw.message) ||
         (raw && raw.code ? `DashScope 错误: ${raw.code}` : '') ||
         `上游请求失败 (${upstreamResp.status})`;
-      res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      res.write(`event: error\ndata: ${JSON.stringify({ error: message })}\n\n`);
+      res.write(`event: error\ndata: ${JSON.stringify({ error: message, request_id: requestId })}\n\n`);
       return res.end();
     }
 
-    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
+    res.write('event: status\ndata: {"status":"connected","message":"工作流已连接，正在等待模型返回内容..."}\n\n');
 
     if (!upstreamResp.body) {
       res.write('event: error\ndata: {"error":"上游无流式响应体"}\n\n');

@@ -59,6 +59,40 @@
             border-bottom: 1px solid #e5e7eb;
         }
 
+        .status-banner {
+            margin: 20px 20px 0;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            border: 1px solid transparent;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+
+        .status-banner.info {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border-color: #bfdbfe;
+        }
+
+        .status-banner.success {
+            background: #ecfdf5;
+            color: #047857;
+            border-color: #a7f3d0;
+        }
+
+        .status-banner.warn {
+            background: #fffbeb;
+            color: #b45309;
+            border-color: #fde68a;
+        }
+
+        .status-banner.error {
+            background: #fef2f2;
+            color: #b91c1c;
+            border-color: #fecaca;
+        }
+
         .content {
             padding: 30px 20px;
         }
@@ -177,6 +211,9 @@
         <div class="metrics-bar" id="metricsBar">
             状态: 准备中 | 首字耗时: - | 总耗时: -
         </div>
+        <div class="status-banner info" id="statusBanner">
+            正在准备请求...
+        </div>
 
         <div class="content">
             <div class="copy-success" id="copySuccess">✅ 已复制到剪贴板</div>
@@ -198,19 +235,25 @@
 
             <div class="error-state" id="errorState" style="display: none;">
                 <h2>无法加载结果</h2>
-                <p>请返回首页重新提交</p>
-                <a href="index.html" class="btn btn-primary" style="display: inline-block; margin-top: 20px;">返回首页</a>
+                <p id="errorDetail">请返回首页重新提交</p>
+                <div class="actions" style="margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="retryStream()">重新尝试</button>
+                    <a href="index.html" class="btn btn-secondary">返回首页</a>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
         const STREAM_API_URL = '/api/polish/stream';
-        const FALLBACK_API_URL = '/api/polish';
         const resultContentEl = document.getElementById('resultContent');
         const infoBarEl = document.getElementById('infoBar');
         const metricsBarEl = document.getElementById('metricsBar');
+        const statusBannerEl = document.getElementById('statusBanner');
         const stopBtnEl = document.getElementById('stopBtn');
+        const resultContainerEl = document.getElementById('resultContainer');
+        const errorStateEl = document.getElementById('errorState');
+        const errorDetailEl = document.getElementById('errorDetail');
 
         let paramsData = null;
         let streamController = null;
@@ -218,6 +261,8 @@
         let streamStartedAt = 0;
         let firstTokenAt = 0;
         let metricsTimer = null;
+        let metricsStatus = '准备中';
+        let firstTokenHintTimer = null;
 
         try {
             const paramsStr = sessionStorage.getItem('essay_params');
@@ -228,12 +273,37 @@
             console.error('解析参数失败:', e);
         }
 
-        function showError(msg) {
-            if (msg) {
-                alert(msg);
+        function setStatus(message, tone = 'info') {
+            statusBannerEl.textContent = message;
+            statusBannerEl.className = `status-banner ${tone}`;
+        }
+
+        function showFatalError(msg) {
+            errorDetailEl.textContent = msg || '请返回首页重新提交';
+            resultContainerEl.style.display = 'none';
+            errorStateEl.style.display = 'block';
+            setStatus(msg || '加载失败', 'error');
+        }
+
+        function showInlineError(msg) {
+            setStatus(msg || '生成失败，请重试', 'error');
+            if (!resultContentEl.textContent.trim()) {
+                resultContentEl.textContent = '本次生成失败，请点击重试。';
+            } else {
+                resultContentEl.textContent += `\n\n[生成失败] ${msg || '请重试'}`;
             }
-            document.getElementById('resultContainer').style.display = 'none';
-            document.getElementById('errorState').style.display = 'block';
+        }
+
+        function retryStream() {
+            errorStateEl.style.display = 'none';
+            resultContainerEl.style.display = 'block';
+            resultContentEl.textContent = '正在重新发起请求...\n\n';
+            streamResult().catch(handleStreamFailure);
+        }
+
+        function formatErrorMessage(message, requestId) {
+            const base = message || '请求失败，请重试';
+            return requestId ? `${base}（request_id: ${requestId}）` : base;
         }
 
         function formatDuration(ms) {
@@ -244,16 +314,17 @@
         }
 
         function renderMetrics(statusText) {
+            metricsStatus = statusText;
             const now = Date.now();
             const total = streamStartedAt ? now - streamStartedAt : 0;
             const first = firstTokenAt ? firstTokenAt - streamStartedAt : 0;
             metricsBarEl.textContent = `状态: ${statusText} | 首字耗时: ${formatDuration(first)} | 总耗时: ${formatDuration(total)}`;
         }
 
-        function startMetrics() {
+        function startMetrics(statusText) {
             clearInterval(metricsTimer);
-            renderMetrics('生成中');
-            metricsTimer = setInterval(() => renderMetrics('生成中'), 300);
+            renderMetrics(statusText);
+            metricsTimer = setInterval(() => renderMetrics(metricsStatus), 300);
         }
 
         function stopMetrics(statusText) {
@@ -333,18 +404,27 @@
 
         async function streamResult() {
             if (!paramsData) {
-                showError('未找到提交参数，请返回首页重新提交');
+                showFatalError('未找到提交参数，请返回首页重新提交');
                 return;
             }
 
+            clearTimeout(firstTokenHintTimer);
             infoBarEl.innerHTML = `目标学校: <strong>${paramsData.school_name}</strong>`;
+            errorStateEl.style.display = 'none';
+            resultContainerEl.style.display = 'block';
             resultContentEl.textContent = '正在生成中，请稍候...\n\n';
             stopRequested = false;
             streamStartedAt = Date.now();
             firstTokenAt = 0;
-            startMetrics();
+            startMetrics('连接中');
+            setStatus('正在连接工作流，请稍候...', 'info');
             setStopEnabled(true);
             streamController = new AbortController();
+            firstTokenHintTimer = setTimeout(() => {
+                if (!firstTokenAt && !stopRequested) {
+                    setStatus('工作流仍在处理中，首次返回可能稍慢，请继续等待或手动停止。', 'warn');
+                }
+            }, 8000);
 
             const response = await fetch(STREAM_API_URL, {
                 method: 'POST',
@@ -366,7 +446,6 @@
             const decoder = new TextDecoder();
             let buffer = '';
             let hasContent = false;
-            let finalText = '';
 
             function appendText(chunk) {
                 if (!chunk) {
@@ -374,6 +453,9 @@
                 }
                 if (!firstTokenAt) {
                     firstTokenAt = Date.now();
+                    setStatus('已收到返回内容，正在生成中...', 'info');
+                    renderMetrics('生成中');
+                    clearTimeout(firstTokenHintTimer);
                 }
                 if (!hasContent) {
                     resultContentEl.textContent = '';
@@ -411,8 +493,13 @@
                     return;
                 }
 
+                if (eventType === 'status' && payload.message) {
+                    setStatus(payload.message, payload.status === 'connected' ? 'info' : 'info');
+                    return;
+                }
+
                 if (eventType === 'error' || payload.error) {
-                    throw new Error(payload.error || '流式返回错误');
+                    throw new Error(formatErrorMessage(payload.error || '流式返回错误', payload.request_id));
                 }
 
                 const output = payload.output || {};
@@ -421,7 +508,9 @@
 
                 if (finishReason === 'stop') {
                     const normalized = normalizeFinalText(eventText);
-                    finalText = normalized || finalText;
+                    if (normalized && normalized !== eventText) {
+                        resultContentEl.textContent = normalized;
+                    }
                     return;
                 }
                 appendText(eventText);
@@ -432,7 +521,7 @@
                 if (done) {
                     break;
                 }
-                buffer += decoder.decode(value, { stream: true });
+                buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
                 let sepIndex = buffer.indexOf('\n\n');
                 while (sepIndex !== -1) {
                     const block = buffer.slice(0, sepIndex);
@@ -442,51 +531,52 @@
                 }
             }
 
-            if (finalText) {
-                resultContentEl.textContent = finalText;
+            const tail = buffer.trim();
+            if (tail) {
+                handleEventBlock(tail);
             }
             if (!resultContentEl.textContent.trim()) {
-                const fallbackResp = await fetch(FALLBACK_API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(paramsData)
-                });
-                const fallbackData = await fallbackResp.json().catch(() => ({}));
-                if (!fallbackResp.ok) {
-                    throw new Error(fallbackData.error || `回退请求失败: ${fallbackResp.status}`);
-                }
-                if (!fallbackData.text || !String(fallbackData.text).trim()) {
-                    throw new Error('未收到有效文本结果');
-                }
-                resultContentEl.textContent = fallbackData.text;
+                throw new Error('工作流已结束，但未返回有效文本结果');
             }
 
             sessionStorage.setItem('essay_result', JSON.stringify({ text: resultContentEl.textContent }));
+            clearTimeout(firstTokenHintTimer);
             stopMetrics('已完成');
+            setStatus('生成完成，可以复制或返回重新提交。', 'success');
             setStopEnabled(false);
             streamController = null;
+        }
+
+        function handleStreamFailure(error) {
+            clearTimeout(firstTokenHintTimer);
+            setStopEnabled(false);
+            streamController = null;
+            if (stopRequested || (error && error.name === 'AbortError')) {
+                const currentText = resultContentEl.textContent.trim();
+                if (!currentText || /^正在生成中/.test(currentText) || /^正在重新发起请求/.test(currentText)) {
+                    resultContentEl.textContent = '已停止生成';
+                } else {
+                    resultContentEl.textContent += '\n\n[已停止生成]';
+                }
+                stopMetrics('已停止');
+                setStatus('生成已停止。', 'warn');
+                return;
+            }
+
+            stopMetrics('失败');
+            console.error('流式渲染失败:', error);
+            if (resultContentEl.textContent.trim() && !/^正在生成中/.test(resultContentEl.textContent.trim())) {
+                showInlineError(error.message || '流式渲染失败，请重试');
+                return;
+            }
+            showFatalError(error.message || '流式渲染失败，请重试');
         }
 
         (async function init() {
             try {
                 await streamResult();
             } catch (error) {
-                setStopEnabled(false);
-                streamController = null;
-                if (stopRequested || (error && error.name === 'AbortError')) {
-                    if (!resultContentEl.textContent.trim()) {
-                        resultContentEl.textContent = '已停止生成';
-                    } else {
-                        resultContentEl.textContent += '\n\n[已停止生成]';
-                    }
-                    stopMetrics('已停止');
-                    return;
-                }
-                stopMetrics('失败');
-                console.error('流式渲染失败:', error);
-                showError(error.message || '流式渲染失败，请重试');
+                handleStreamFailure(error);
             }
         })();
     </script>
