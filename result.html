@@ -390,6 +390,11 @@
             return text;
         }
 
+        function isPlaceholderText(text) {
+            const trimmed = typeof text === 'string' ? text.trim() : '';
+            return !trimmed || /^正在生成中/.test(trimmed) || /^正在重新发起请求/.test(trimmed);
+        }
+
         function extractEventText(output) {
             if (!output || typeof output !== 'object') {
                 return '';
@@ -405,6 +410,42 @@
                 return output.text;
             }
             return '';
+        }
+
+        async function fetchFinalResultFallback() {
+            setStatus('工作流未返回可渲染的流式正文，正在获取最终结果...', 'warn');
+            const controller = new AbortController();
+            streamController = controller;
+
+            const response = await fetch('/api/polish', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(paramsData),
+                signal: controller.signal
+            });
+
+            let payload = {};
+            try {
+                payload = await response.json();
+            } catch (e) {
+                payload = {};
+            }
+
+            if (!response.ok) {
+                throw new Error(payload.error || `请求失败: ${response.status}`);
+            }
+
+            const finalText = normalizeFinalText(
+                payload.text || payload.result || payload.content || ''
+            );
+
+            if (!finalText) {
+                throw new Error('工作流已结束，但未返回有效文本结果');
+            }
+
+            resultContentEl.textContent = finalText;
         }
 
         function stopStream() {
@@ -550,8 +591,8 @@
             if (tail) {
                 handleEventBlock(tail);
             }
-            if (!resultContentEl.textContent.trim()) {
-                throw new Error('工作流已结束，但未返回有效文本结果');
+            if (isPlaceholderText(resultContentEl.textContent)) {
+                await fetchFinalResultFallback();
             }
 
             sessionStorage.setItem('essay_result', JSON.stringify({ text: resultContentEl.textContent }));
@@ -568,7 +609,7 @@
             streamController = null;
             if (stopRequested || (error && error.name === 'AbortError')) {
                 const currentText = resultContentEl.textContent.trim();
-                if (!currentText || /^正在生成中/.test(currentText) || /^正在重新发起请求/.test(currentText)) {
+                if (isPlaceholderText(currentText)) {
                     resultContentEl.textContent = '已停止生成';
                 } else {
                     resultContentEl.textContent += '\n\n[已停止生成]';
@@ -580,7 +621,7 @@
 
             stopMetrics('失败');
             console.error('流式渲染失败:', error);
-            if (resultContentEl.textContent.trim() && !/^正在生成中/.test(resultContentEl.textContent.trim())) {
+            if (!isPlaceholderText(resultContentEl.textContent)) {
                 showInlineError(error.message || '流式渲染失败，请重试');
                 return;
             }
