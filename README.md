@@ -117,6 +117,7 @@ sudo ./deploy.sh
 - `ALIYUN_USER`：SSH 用户（通常 `root`）
 - `ALIYUN_SSH_PORT`：SSH 连接端口
 - `ALIYUN_SSH_PRIVATE_KEY`：用于登录服务器的私钥全文（PEM）
+- `ALIYUN_SSH_PASSPHRASE`：如果私钥带口令，则填写该口令；无口令可不配
 - `DASHSCOPE_API_KEY`：百炼 API Key
 - `WORKFLOW_APP_ID`：应用 ID（例如 `6e42604f098e49de9ac0536571b47926`）
 - `BASIC_AUTH_USER`：页面访问用户名
@@ -127,4 +128,3 @@ sudo ./deploy.sh
 - 更新 `/etc/loveessay/loveessay.env`
 - 执行 `./deploy.sh`
 - 检查 `loveessay/nginx` 状态并做本地健康检查
-

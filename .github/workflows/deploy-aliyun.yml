@@ -19,12 +19,42 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Preflight SSH check
+        env:
+          SSH_HOST: ${{ secrets.ALIYUN_HOST }}
+          SSH_USER: ${{ secrets.ALIYUN_USER }}
+          SSH_PORT: ${{ secrets.ALIYUN_SSH_PORT }}
+          SSH_KEY: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SSH_HOST:-}" ] || [ -z "${SSH_USER:-}" ] || [ -z "${SSH_PORT:-}" ] || [ -z "${SSH_KEY:-}" ]; then
+            echo "缺少 SSH 相关 Secrets: ALIYUN_HOST / ALIYUN_USER / ALIYUN_SSH_PORT / ALIYUN_SSH_PRIVATE_KEY"
+            exit 1
+          fi
+
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/loveessay_deploy_key
+          chmod 600 ~/.ssh/loveessay_deploy_key
+
+          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          ssh \
+            -i ~/.ssh/loveessay_deploy_key \
+            -p "$SSH_PORT" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=accept-new \
+            "$SSH_USER@$SSH_HOST" \
+            "echo github-actions-ssh-ok"
+
       - name: Upload project files to server
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.ALIYUN_HOST }}
           username: ${{ secrets.ALIYUN_USER }}
           key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.ALIYUN_SSH_PASSPHRASE }}
           port: ${{ secrets.ALIYUN_SSH_PORT }}
           source: "."
           target: "/root/LoveEssay"
@@ -33,7 +63,7 @@ jobs:
           strip_components: 0
 
       - name: Deploy on server
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1
         env:
           DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
           BASIC_AUTH_USER: ${{ secrets.BASIC_AUTH_USER }}
@@ -43,6 +73,7 @@ jobs:
           host: ${{ secrets.ALIYUN_HOST }}
           username: ${{ secrets.ALIYUN_USER }}
           key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.ALIYUN_SSH_PASSPHRASE }}
           port: ${{ secrets.ALIYUN_SSH_PORT }}
           envs: DASHSCOPE_API_KEY,BASIC_AUTH_USER,BASIC_AUTH_PASS,WORKFLOW_APP_ID
           script_stop: true
