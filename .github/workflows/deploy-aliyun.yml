@@ -19,7 +19,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Preflight SSH check
+      - name: Validate SSH secrets
         env:
           SSH_HOST: ${{ secrets.ALIYUN_HOST }}
           SSH_USER: ${{ secrets.ALIYUN_USER }}
@@ -33,20 +33,18 @@ jobs:
             exit 1
           fi
 
-          mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/loveessay_deploy_key
-          chmod 600 ~/.ssh/loveessay_deploy_key
-
-          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
-
-          ssh \
-            -i ~/.ssh/loveessay_deploy_key \
-            -p "$SSH_PORT" \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=accept-new \
-            "$SSH_USER@$SSH_HOST" \
-            "echo github-actions-ssh-ok"
+      - name: Preflight SSH check
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ secrets.ALIYUN_USER }}
+          key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.ALIYUN_SSH_PASSPHRASE }}
+          port: ${{ secrets.ALIYUN_SSH_PORT }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            echo github-actions-ssh-ok
 
       - name: Upload project files to server
         uses: appleboy/scp-action@v1
