@@ -1,0 +1,10 @@
+node_modules
+.git
+.github
+server-access
+login
+*.log
+.DS_Store
+README.md
+DEPLOY_PLAN.md
+docs
