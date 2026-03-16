@@ -210,16 +210,33 @@
             showLoading(true);
             hideError();
 
-            // 构建请求参数并跳转结果页进行流式渲染
             const params = {
                 school_name,
                 student_info_str,
                 query: query || '请润色以下文书'
             };
 
-            sessionStorage.removeItem('essay_result');
-            sessionStorage.setItem('essay_params', JSON.stringify(params));
-            window.location.href = 'result.html';
+            try {
+                const response = await fetch('/api/tasks', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(params)
+                });
+
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok || !payload.task_id) {
+                    throw new Error(payload.error || '创建生成任务失败，请重试');
+                }
+
+                sessionStorage.removeItem('essay_result');
+                sessionStorage.setItem('essay_task_id', payload.task_id);
+                window.location.href = `result.html?task=${encodeURIComponent(payload.task_id)}`;
+            } catch (error) {
+                showLoading(false);
+                showError(error.message || '提交失败，请稍后重试');
+            }
         });
 
         function showLoading(show) {
