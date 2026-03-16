@@ -10,6 +10,12 @@
 
 ## 2. 部署步骤
 
+前提：
+
+- 目标 ECS 已安装 `docker`
+- 目标 ECS 已安装 `docker compose`
+- 当前 GitHub Actions workflow 不负责在远端自动安装 Docker
+
 ### 2.1 准备环境变量
 
 ```bash

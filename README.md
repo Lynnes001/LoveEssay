@@ -63,6 +63,12 @@ npm run worker
 
 ## Docker 部署
 
+前提：
+
+- 目标 ECS 机器已安装 `docker`
+- 目标 ECS 机器已安装 `docker compose`
+- GitHub Actions 只负责通过 SSH 推送代码并执行 `docker compose up`，不会自动安装 Docker
+
 1. 配置环境变量
 
 ```bash
@@ -153,4 +159,5 @@ curl -X POST http://127.0.0.1:6788/api/tasks \
 - 打开 LangSmith 后，可以在 trace 中看到工作流入口和模型调用子节点
 - 生产部署默认通过固定 `/login` 页面保护页面和任务 API，替代浏览器原生 Basic Auth 弹窗
 - 兼容旧配置：如果环境里仍使用 `BASIC_AUTH_USER / BASIC_AUTH_PASS`，应用仍可读取，但新部署建议改用 `APP_LOGIN_USER / APP_LOGIN_PASS`
+- GitHub Actions 部署前，ECS 必须预装 `docker` 和 `docker compose`
 - 旧的 `deploy.sh` / `scripts/deploy_server.sh` 是上一版 systemd 部署方式，不再代表当前推荐路径

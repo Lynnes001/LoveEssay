@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Validate SSH secrets
         env:
@@ -40,16 +40,15 @@ jobs:
           key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.ALIYUN_SSH_PASSPHRASE }}
           port: 22
-          script_stop: true
           script: |
             set -euo pipefail
             echo github-actions-ssh-ok
             if ! command -v docker >/dev/null 2>&1; then
-              echo "服务器未安装 docker"
+              echo "服务器未安装 docker。请先在 ECS 上安装 Docker Engine。"
               exit 1
             fi
             if ! docker compose version >/dev/null 2>&1; then
-              echo "服务器未安装 docker compose"
+              echo "服务器未安装 docker compose。请先安装 Docker Compose Plugin。"
               exit 1
             fi
 
@@ -92,7 +91,6 @@ jobs:
           passphrase: ${{ secrets.ALIYUN_SSH_PASSPHRASE }}
           port: 22
           envs: DASHSCOPE_API_KEY,APP_LOGIN_USER,APP_LOGIN_PASS,AUTH_SESSION_SECRET,AUTH_SESSION_TTL_SECONDS,AUTH_SECURE_COOKIE,LANGSMITH_TRACING,LANGSMITH_API_KEY,LANGSMITH_PROJECT,LANGSMITH_ENDPOINT,LANGSMITH_WORKSPACE_ID,EXTRACT_MODEL,DRAFT_MODEL,REWRITE_MODEL,CHECK_MODEL
-          script_stop: true
           script: |
             set -euo pipefail
             if [ -z "${DASHSCOPE_API_KEY:-}" ]; then
