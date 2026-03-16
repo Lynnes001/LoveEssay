@@ -5,3 +5,8 @@ node_modules/
 .DS_Store
 server-access
 .github/.tmp/
+uploads/*
+!uploads/.gitkeep
+pgdata/
+redis-data/
+temp/

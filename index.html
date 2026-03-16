@@ -79,8 +79,13 @@
         }
 
         .form-group textarea {
-            min-height: 150px;
+            min-height: 120px;
             resize: vertical;
+        }
+
+        .form-group input[type="file"] {
+            padding: 10px 12px;
+            background: #f9fafb;
         }
 
         .form-group .hint {
@@ -150,10 +155,29 @@
         .error-msg.active {
             display: block;
         }
+
+        .topbar {
+            display: flex;
+            justify-content: flex-end;
+            padding: 18px 20px 0;
+        }
+
+        .logout-link {
+            border: none;
+            background: transparent;
+            color: #fff;
+            font-size: 13px;
+            text-decoration: underline;
+            cursor: pointer;
+            opacity: 0.9;
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="topbar">
+            <button class="logout-link" type="button" onclick="logout()">退出登录</button>
+        </div>
         <div class="header">
             <h1>🎓 文书润色助手</h1>
             <p>输入学生信息，获取专业文书润色建议</p>
@@ -168,15 +192,21 @@
             </div>
 
             <div class="form-group">
-                <label for="student_info_str">学生信息（包含所有经历、奖项、兴趣等）</label>
-                <textarea id="student_info_str" name="student_info_str" placeholder="请详细填写学生的背景信息、活动经历、获奖情况、兴趣爱好等，越详细越好..." required></textarea>
-                <p class="hint">建议填写完整的个人经历描述</p>
-            </div>
-
-            <div class="form-group">
                 <label for="query">润色要求（可选）</label>
                 <input type="text" id="query" name="query" placeholder="例如：突出领导力，强调科研经历">
                 <p class="hint">如有特殊要求请填写，如无需留空</p>
+            </div>
+
+            <div class="form-group">
+                <label for="notes">补充说明（可选）</label>
+                <textarea id="notes" name="notes" placeholder="可补充说明材料来源、希望强调的主题、注意不要写入文书的内容等"></textarea>
+                <p class="hint">这里适合补充家长备注、顾问提醒、材料使用边界等</p>
+            </div>
+
+            <div class="form-group">
+                <label for="material_file">学生材料 Word 文件</label>
+                <input type="file" id="material_file" name="material_file" accept=".docx" required>
+                <p class="hint">当前版本仅支持上传 .docx，内容可以混合简历、活动列表、学校说明和家长补充</p>
             </div>
 
             <button type="submit" class="submit-btn" id="submitBtn">提交申请</button>
@@ -199,33 +229,35 @@
             e.preventDefault();
 
             const school_name = document.getElementById('school_name').value.trim();
-            const student_info_str = document.getElementById('student_info_str').value.trim();
             const query = document.getElementById('query').value.trim();
+            const notes = document.getElementById('notes').value.trim();
+            const materialFile = document.getElementById('material_file').files[0];
 
-            if (!school_name || !student_info_str) {
-                showError('请填写学校名称和学生信息');
+            if (!school_name || !materialFile) {
+                showError('请填写学校名称并上传 Word 材料');
                 return;
             }
 
             showLoading(true);
             hideError();
 
-            const params = {
-                school_name,
-                student_info_str,
-                query: query || '请润色以下文书'
-            };
+            const formData = new FormData();
+            formData.append('school_name', school_name);
+            formData.append('query', query || '请写出一篇真实、克制、具有说服力的英文个人陈述');
+            formData.append('notes', notes);
+            formData.append('material_file', materialFile);
 
             try {
                 const response = await fetch('/api/tasks', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(params)
+                    body: formData
                 });
 
                 const payload = await response.json().catch(() => ({}));
+                if (response.status === 401 && payload.redirect) {
+                    window.location.href = payload.redirect;
+                    return;
+                }
                 if (!response.ok || !payload.task_id) {
                     throw new Error(payload.error || '创建生成任务失败，请重试');
                 }
@@ -240,6 +272,7 @@
         });
 
         function showLoading(show) {
+            submitBtn.disabled = show;
             form.style.display = show ? 'none' : 'block';
             loading.classList.toggle('active', show);
         }
@@ -251,6 +284,11 @@
 
         function hideError() {
             errorMsg.classList.remove('active');
+        }
+
+        async function logout() {
+            await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+            window.location.href = '/login';
         }
     </script>
 </body>

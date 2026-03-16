@@ -1,123 +1,122 @@
-# LoveEssay 部署与验收手册
+# LoveEssay Docker 部署与验收手册
 
-## 1. 架构
-- Nginx 作为公网访问入口（HTTP）
-- 前端静态资源：`/var/www/loveessay`
-- Node 服务：本机回环地址
-- API 路由：`/api/polish`（Nginx 反向代理到 Node）
-- 页面与 API 统一走 Nginx Basic Auth（用户名/密码）
+## 1. 服务组成
 
-## 2. 服务器准备
-推荐：阿里云轻量应用服务器（Ubuntu 22.04，1C1G）。
+- `nginx`：对外入口，监听宿主机 `6788`
+- `web`：Express API 与静态页面
+- `worker`：BullMQ Worker，执行 LangGraph 工作流
+- `postgres`：任务、结果、事件日志
+- `redis`：队列与调度
 
-需要开放网络入口：
-- SSH 入口（用于运维登录）
-- 业务入口（用于页面和 API 访问）
+## 2. 部署步骤
 
-## 3. 发布步骤
-
-### 3.1 上传代码
-将本仓库上传到服务器，例如：
+### 2.1 准备环境变量
 
 ```bash
-scp -r ./LoveEssay root@<server-host>:/root/
+cp .env.example .env
 ```
 
-### 3.2 执行部署脚本
-
-```bash
-cd /root/LoveEssay
-chmod +x deploy.sh scripts/deploy_server.sh
-sudo ./deploy.sh
-```
-
-### 3.3 配置 API Key 和访问账号
-编辑 `/etc/loveessay/loveessay.env`：
+至少填写：
 
 ```bash
 DASHSCOPE_API_KEY=your-real-key
-PORT=<按部署环境配置>
-WORKFLOW_MODEL=workflow-6e42604f098e49de9ac0536571b47926
-RATE_LIMIT_PER_MINUTE=30
-BASIC_AUTH_USER=admin
-BASIC_AUTH_PASS=change-me-now
+APP_LOGIN_USER=admin
+APP_LOGIN_PASS=change-me-now
+AUTH_SESSION_SECRET=change-session-secret
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=your-langsmith-api-key
+LANGSMITH_PROJECT=loveessay
+EXTRACT_MODEL=qwen3.5-plus
+DRAFT_MODEL=qwen3.5-plus
+REWRITE_MODEL=qwen3-14b-81bba393c391
+CHECK_MODEL=qwen3.5-plus
 ```
 
-重启服务（会重建认证密码文件）：
+### 2.2 启动服务
 
 ```bash
-sudo ./deploy.sh
-sudo systemctl restart loveessay
+docker compose up --build -d
 ```
 
-## 4. 验收清单
-
-### 4.1 服务状态
+### 2.3 查看状态
 
 ```bash
-systemctl status loveessay
-systemctl status nginx
+docker compose ps
+docker compose logs --tail=100 web worker
 ```
 
-### 4.2 健康检查
+## 3. 验收清单
+
+### 3.1 健康检查
 
 ```bash
-curl http://localhost:<本地服务端口>/api/health
+curl http://127.0.0.1:6788/api/health
 ```
 
 预期：返回 `{"ok":true,...}`。
 
-### 4.3 页面检查
-浏览器访问：
+### 3.2 页面检查
 
-- `http://<server-host>:<业务入口端口>`
+打开：
 
-预期：浏览器先弹出用户名密码认证框。认证后提交测试数据，确认可跳转到结果页并显示润色文本。
+- `http://127.0.0.1:6788`
 
-### 4.4 API 检查
+预期：
+
+- 可以填写目标学校
+- 可以上传 `.docx`
+- 可以提交任务并跳转到结果页
+- 结果页能看到任务状态和最终文书
+
+### 3.3 API 检查
 
 ```bash
-curl -X POST http://<server-host>:<业务入口端口>/api/polish \
-  -u '<BASIC_AUTH_USER>:<BASIC_AUTH_PASS>' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "school_name":"斯坦福大学",
-    "student_info_str":"学生参与机器人竞赛并获奖",
-    "query":"突出科研和领导力"
-  }'
+curl -X POST http://127.0.0.1:6788/api/tasks \
+  -F 'school_name=Stanford University' \
+  -F 'query=Highlight leadership and research curiosity' \
+  -F 'notes=Do not invent school-specific programs.' \
+  -F 'material_file=@./sample.docx'
 ```
 
-## 5. 常见故障排查
+拿到 `task_id` 后：
+
+```bash
+curl http://127.0.0.1:6788/api/tasks/<task_id>
+```
+
+取消任务：
+
+```bash
+curl -X POST http://127.0.0.1:6788/api/tasks/<task_id>/cancel
+```
+
+## 4. 常见问题
 
 1. `服务端未配置 DASHSCOPE_API_KEY`
-- 检查 `/etc/loveessay/loveessay.env`
-- 修改后重启：`systemctl restart loveessay`
+- 检查 `.env`
+- 重启：`docker compose up --build -d`
 
-2. `502 Bad Gateway`
-- Node 服务异常，检查：`journalctl -u loveessay -n 200 --no-pager`
-- 确认本机 Node 服务正常监听
+2. 登录失败
+- 检查 `.env` 中 `APP_LOGIN_USER / APP_LOGIN_PASS`
+- 重启 `web`：`docker compose up -d web`
 
-3. `429 请求过于频繁`
-- 触发限流，调大 `RATE_LIMIT_PER_MINUTE`
+3. `Word 文件解析成功，但未提取到文本内容`
+- 检查上传的 `.docx` 是否为真实 Word 文件
+- 检查文件是否主要由图片组成
 
-4. 页面可开但提交失败
-- 检查 Nginx 代理配置：`/etc/nginx/sites-available/loveessay`
-- 检查浏览器网络请求是否命中 `/api/polish`
+4. `任务一直停留在 queued`
+- 检查 `worker` 是否启动
+- 查看：`docker compose logs worker`
 
-5. 一直弹认证框/认证失败
-- 检查 `/etc/loveessay/loveessay.env` 的 `BASIC_AUTH_USER/BASIC_AUTH_PASS`
-- 重新执行 `sudo ./deploy.sh` 以重建 `/etc/nginx/.loveessay_htpasswd`
+5. `健康检查失败`
+- 查看 `postgres` / `redis` 是否 healthy
+- 运行：`docker compose ps`
 
-## 6. 运维命令
+6. LangSmith 没有 trace
+- 确认 `.env` 中 `LANGSMITH_TRACING=true`
+- 确认 `LANGSMITH_API_KEY` 正确
+- 查看 `worker` 日志是否有 LangSmith 上报错误
 
-```bash
-# 重启服务
-sudo systemctl restart loveessay
-sudo systemctl restart nginx
+## 5. 旧部署说明
 
-# 查看日志
-journalctl -u loveessay -f
-
-# 校验 Nginx
-nginx -t
-```
+仓库内仍保留了早期的 `deploy.sh` / `scripts/deploy_server.sh` systemd 部署脚本，但它们对应的是旧版“静态前端 + 单进程代理 + 百炼工作流 App”方案，不再是当前推荐部署方式。

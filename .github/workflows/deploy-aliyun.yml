@@ -13,7 +13,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -22,14 +22,13 @@ jobs:
       - name: Validate SSH secrets
         env:
           SSH_HOST: ${{ secrets.ALIYUN_HOST }}
-          SSH_USER: ${{ secrets.ALIYUN_USER }}
-          SSH_PORT: ${{ secrets.ALIYUN_SSH_PORT }}
+          SSH_USER: ${{ vars.ALIYUN_USER }}
           SSH_KEY: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
         run: |
           set -euo pipefail
 
-          if [ -z "${SSH_HOST:-}" ] || [ -z "${SSH_USER:-}" ] || [ -z "${SSH_PORT:-}" ] || [ -z "${SSH_KEY:-}" ]; then
-            echo "缺少 SSH 相关 Secrets: ALIYUN_HOST / ALIYUN_USER / ALIYUN_SSH_PORT / ALIYUN_SSH_PRIVATE_KEY"
+          if [ -z "${SSH_HOST:-}" ] || [ -z "${SSH_USER:-}" ] || [ -z "${SSH_KEY:-}" ]; then
+            echo "缺少 SSH 相关配置: ALIYUN_HOST / ALIYUN_USER / ALIYUN_SSH_PRIVATE_KEY"
             exit 1
           fi
 
@@ -37,23 +36,31 @@ jobs:
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.ALIYUN_HOST }}
-          username: ${{ secrets.ALIYUN_USER }}
+          username: ${{ vars.ALIYUN_USER }}
           key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.ALIYUN_SSH_PASSPHRASE }}
-          port: ${{ secrets.ALIYUN_SSH_PORT }}
+          port: 22
           script_stop: true
           script: |
             set -euo pipefail
             echo github-actions-ssh-ok
+            if ! command -v docker >/dev/null 2>&1; then
+              echo "服务器未安装 docker"
+              exit 1
+            fi
+            if ! docker compose version >/dev/null 2>&1; then
+              echo "服务器未安装 docker compose"
+              exit 1
+            fi
 
       - name: Upload project files to server
         uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.ALIYUN_HOST }}
-          username: ${{ secrets.ALIYUN_USER }}
+          username: ${{ vars.ALIYUN_USER }}
           key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.ALIYUN_SSH_PASSPHRASE }}
-          port: ${{ secrets.ALIYUN_SSH_PORT }}
+          port: 22
           source: "."
           target: "/root/LoveEssay"
           overwrite: true
@@ -64,61 +71,87 @@ jobs:
         uses: appleboy/ssh-action@v1
         env:
           DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
-          BASIC_AUTH_USER: ${{ secrets.BASIC_AUTH_USER }}
-          BASIC_AUTH_PASS: ${{ secrets.BASIC_AUTH_PASS }}
-          WORKFLOW_APP_ID: ${{ secrets.WORKFLOW_APP_ID }}
+          APP_LOGIN_USER: ${{ vars.APP_LOGIN_USER || vars.BASIC_AUTH_USER }}
+          APP_LOGIN_PASS: ${{ secrets.APP_LOGIN_PASS || secrets.BASIC_AUTH_PASS }}
+          AUTH_SESSION_SECRET: ${{ secrets.AUTH_SESSION_SECRET }}
+          AUTH_SESSION_TTL_SECONDS: ${{ vars.AUTH_SESSION_TTL_SECONDS }}
+          AUTH_SECURE_COOKIE: ${{ vars.AUTH_SECURE_COOKIE }}
+          LANGSMITH_TRACING: ${{ vars.LANGSMITH_TRACING }}
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+          LANGSMITH_PROJECT: ${{ vars.LANGSMITH_PROJECT }}
+          LANGSMITH_ENDPOINT: ${{ vars.LANGSMITH_ENDPOINT }}
+          LANGSMITH_WORKSPACE_ID: ${{ vars.LANGSMITH_WORKSPACE_ID }}
+          EXTRACT_MODEL: ${{ vars.EXTRACT_MODEL }}
+          DRAFT_MODEL: ${{ vars.DRAFT_MODEL }}
+          REWRITE_MODEL: ${{ vars.REWRITE_MODEL }}
+          CHECK_MODEL: ${{ vars.CHECK_MODEL }}
         with:
           host: ${{ secrets.ALIYUN_HOST }}
-          username: ${{ secrets.ALIYUN_USER }}
+          username: ${{ vars.ALIYUN_USER }}
           key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.ALIYUN_SSH_PASSPHRASE }}
-          port: ${{ secrets.ALIYUN_SSH_PORT }}
-          envs: DASHSCOPE_API_KEY,BASIC_AUTH_USER,BASIC_AUTH_PASS,WORKFLOW_APP_ID
+          port: 22
+          envs: DASHSCOPE_API_KEY,APP_LOGIN_USER,APP_LOGIN_PASS,AUTH_SESSION_SECRET,AUTH_SESSION_TTL_SECONDS,AUTH_SECURE_COOKIE,LANGSMITH_TRACING,LANGSMITH_API_KEY,LANGSMITH_PROJECT,LANGSMITH_ENDPOINT,LANGSMITH_WORKSPACE_ID,EXTRACT_MODEL,DRAFT_MODEL,REWRITE_MODEL,CHECK_MODEL
           script_stop: true
           script: |
             set -euo pipefail
-            if [ -z "${DASHSCOPE_API_KEY:-}" ] || [ -z "${WORKFLOW_APP_ID:-}" ] || [ -z "${BASIC_AUTH_USER:-}" ] || [ -z "${BASIC_AUTH_PASS:-}" ]; then
-              echo "缺少必填 GitHub Secrets: DASHSCOPE_API_KEY / WORKFLOW_APP_ID / BASIC_AUTH_USER / BASIC_AUTH_PASS"
+            if [ -z "${DASHSCOPE_API_KEY:-}" ]; then
+              echo "缺少必填 GitHub Secret: DASHSCOPE_API_KEY"
               exit 1
             fi
-
-            if [ "${BASIC_AUTH_PASS}" = "change-me" ]; then
-              echo "BASIC_AUTH_PASS 不能为默认值 change-me"
+            if [ -z "${APP_LOGIN_USER:-}" ] || [ -z "${APP_LOGIN_PASS:-}" ]; then
+              echo "缺少应用登录配置: APP_LOGIN_USER / APP_LOGIN_PASS"
               exit 1
             fi
 
             cd /root/LoveEssay
-            chmod +x deploy.sh scripts/deploy_server.sh
 
-            sudo mkdir -p /etc/loveessay
-            sudo tee /etc/loveessay/loveessay.env > /dev/null <<EOT
+            mkdir -p uploads pgdata redis-data
+
+            cat > .env <<EOT
             DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+            APP_LOGIN_USER=${APP_LOGIN_USER}
+            APP_LOGIN_PASS=${APP_LOGIN_PASS}
+            AUTH_SESSION_SECRET=${AUTH_SESSION_SECRET:-${APP_LOGIN_PASS}}
+            AUTH_SESSION_TTL_SECONDS=${AUTH_SESSION_TTL_SECONDS:-604800}
+            AUTH_SECURE_COOKIE=${AUTH_SECURE_COOKIE:-false}
+            LANGSMITH_TRACING=${LANGSMITH_TRACING:-false}
+            LANGSMITH_API_KEY=${LANGSMITH_API_KEY:-}
+            LANGSMITH_PROJECT=${LANGSMITH_PROJECT:-loveessay}
+            LANGSMITH_ENDPOINT=${LANGSMITH_ENDPOINT:-}
+            LANGSMITH_WORKSPACE_ID=${LANGSMITH_WORKSPACE_ID:-}
             PORT=6789
-            WORKFLOW_APP_ID=${WORKFLOW_APP_ID}
+            PUBLIC_BASE_URL=http://127.0.0.1:6788
+            DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+            EXTRACT_MODEL=${EXTRACT_MODEL:-qwen3.5-plus}
+            DRAFT_MODEL=${DRAFT_MODEL:-qwen3.5-plus}
+            REWRITE_MODEL=${REWRITE_MODEL:-qwen3-14b-81bba393c391}
+            CHECK_MODEL=${CHECK_MODEL:-qwen3.5-plus}
+            MAX_UPLOAD_SIZE_MB=15
             RATE_LIMIT_PER_MINUTE=30
-            BASIC_AUTH_USER=${BASIC_AUTH_USER}
-            BASIC_AUTH_PASS=${BASIC_AUTH_PASS}
+            TASK_TIMEOUT_MS=900000
+            TASK_TTL_MS=172800000
+            UPLOAD_DIR=/app/uploads
+            DATABASE_URL=postgresql://loveessay:loveessay@postgres:5432/loveessay
+            REDIS_URL=redis://redis:6379
+            QUEUE_NAME=loveessay-tasks
             EOT
-            sudo chmod 600 /etc/loveessay/loveessay.env
 
-            sudo ./deploy.sh
-
-            sudo systemctl is-active loveessay
-            sudo systemctl is-active nginx
+            docker compose down --remove-orphans
+            docker compose up --build -d
 
             ok=0
-            for i in $(seq 1 15); do
-              if curl -sS --fail -u "${BASIC_AUTH_USER}:${BASIC_AUTH_PASS}" http://127.0.0.1:6788/api/health > /dev/null; then
+            for i in $(seq 1 30); do
+              if curl -sS --fail http://127.0.0.1:6788/api/health > /dev/null; then
                 ok=1
                 break
               fi
-              sleep 2
+              sleep 3
             done
 
             if [ "$ok" -ne 1 ]; then
               echo "健康检查失败，输出服务诊断信息..."
-              sudo systemctl status loveessay --no-pager || true
-              sudo journalctl -u loveessay -n 120 --no-pager || true
-              sudo systemctl status nginx --no-pager || true
+              docker compose ps || true
+              docker compose logs --no-color --tail=200 web worker nginx postgres redis || true
               exit 1
             fi

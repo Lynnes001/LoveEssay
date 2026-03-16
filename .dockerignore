@@ -5,6 +5,8 @@ server-access
 login
 *.log
 .DS_Store
-README.md
-DEPLOY_PLAN.md
 docs
+uploads
+pgdata
+redis-data
+temp

@@ -243,6 +243,22 @@
             display: block;
         }
 
+        .topbar {
+            display: flex;
+            justify-content: flex-end;
+            padding: 18px 20px 0;
+        }
+
+        .logout-link {
+            border: none;
+            background: transparent;
+            color: #fff;
+            font-size: 13px;
+            text-decoration: underline;
+            cursor: pointer;
+            opacity: 0.9;
+        }
+
         @media (max-width: 600px) {
             .actions {
                 flex-direction: column;
@@ -256,6 +272,9 @@
 </head>
 <body>
     <div class="container">
+        <div class="topbar">
+            <button class="logout-link" type="button" onclick="logout()">退出登录</button>
+        </div>
         <div class="header">
             <h1>🎓 文书润色结果</h1>
         </div>
@@ -281,8 +300,16 @@
                         <div class="summary-value" id="summarySchool">加载中...</div>
                     </div>
                     <div class="summary-row">
-                        <div class="summary-label">学生信息</div>
-                        <div class="summary-value student-info" id="summaryStudentInfo">加载中...</div>
+                        <div class="summary-label">材料文件</div>
+                        <div class="summary-value" id="summaryMaterialFile">加载中...</div>
+                    </div>
+                    <div class="summary-row">
+                        <div class="summary-label">润色要求</div>
+                        <div class="summary-value" id="summaryQuery">加载中...</div>
+                    </div>
+                    <div class="summary-row">
+                        <div class="summary-label">补充说明</div>
+                        <div class="summary-value student-info" id="summaryNotes">加载中...</div>
                     </div>
                 </div>
 
@@ -322,7 +349,9 @@
         const errorDetailEl = document.getElementById('errorDetail');
         const copySuccessEl = document.getElementById('copySuccess');
         const summarySchoolEl = document.getElementById('summarySchool');
-        const summaryStudentInfoEl = document.getElementById('summaryStudentInfo');
+        const summaryMaterialFileEl = document.getElementById('summaryMaterialFile');
+        const summaryQueryEl = document.getElementById('summaryQuery');
+        const summaryNotesEl = document.getElementById('summaryNotes');
         const taskId =
             new URLSearchParams(window.location.search).get('task') ||
             sessionStorage.getItem('essay_task_id') ||
@@ -459,15 +488,66 @@
             }, delay);
         }
 
+        function getDisplayStep(task) {
+            const rawStep = String(task.current_step || '').trim();
+            const status = String(task.status || '').trim();
+
+            if (status === 'queued' || rawStep === 'queued' || rawStep === 'starting') {
+                return '排队中（0/5）';
+            }
+
+            if (
+                rawStep === 'parse_docx' ||
+                rawStep === 'segment_material' ||
+                rawStep.startsWith('extract_facts') ||
+                rawStep === 'merge_profile' ||
+                rawStep === 'profile_guard'
+            ) {
+                return '材料解析与提取（1/5）';
+            }
+
+            if (rawStep === 'draft_essay') {
+                return '生成初稿（2/5）';
+            }
+
+            if (rawStep === 'rewrite_essay') {
+                return '风格优化（3/5）';
+            }
+
+            if (
+                rawStep === 'fact_check' ||
+                rawStep === 'repair_essay' ||
+                rawStep === 'final_validation'
+            ) {
+                return '事实核查与修复（4/5）';
+            }
+
+            if (status === 'completed' || rawStep === 'completed') {
+                return '生成完成（5/5）';
+            }
+
+            if (status === 'failed' || rawStep === 'failed') {
+                return '生成失败';
+            }
+
+            if (status === 'canceled' || rawStep === 'canceled') {
+                return '已停止';
+            }
+
+            return rawStep || '-';
+        }
+
         function applyTaskState(task) {
             currentTaskStatus = task.status;
             if (task.created_at && !taskStartedAt) {
                 taskStartedAt = task.created_at;
             }
 
-            infoBarEl.innerHTML = `目标学校: <strong>${task.school_name || '-'}</strong>`;
+            infoBarEl.innerHTML = `目标学校: <strong>${task.school_name || '-'}</strong> | 当前步骤: <strong>${getDisplayStep(task)}</strong>`;
             summarySchoolEl.textContent = task.school_name || '-';
-            summaryStudentInfoEl.textContent = task.student_info_str || '未提供';
+            summaryMaterialFileEl.textContent = task.material_file_name || '未提供';
+            summaryQueryEl.textContent = task.query || '未提供';
+            summaryNotesEl.textContent = task.notes || '未提供';
             errorStateEl.style.display = 'none';
             resultContainerEl.style.display = 'block';
 
@@ -531,6 +611,11 @@
             });
             const payload = await response.json().catch(() => ({}));
 
+            if (response.status === 401 && payload.redirect) {
+                window.location.href = payload.redirect;
+                return;
+            }
+
             if (!response.ok) {
                 throw new Error(payload.error || `请求失败: ${response.status}`);
             }
@@ -551,6 +636,11 @@
                     method: 'POST'
                 });
                 const payload = await response.json().catch(() => ({}));
+
+                if (response.status === 401 && payload.redirect) {
+                    window.location.href = payload.redirect;
+                    return;
+                }
 
                 if (!response.ok) {
                     throw new Error(payload.error || `请求失败: ${response.status}`);
@@ -601,6 +691,11 @@
                 handleTaskFailure(error);
             }
         })();
+
+        async function logout() {
+            await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+            window.location.href = '/login';
+        }
     </script>
 </body>
 </html>
