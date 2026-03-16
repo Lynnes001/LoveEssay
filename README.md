@@ -1,79 +1,41 @@
 # 文书润色助手 (LoveEssay)
 
-基于阿里云百炼工作流的文书润色应用，采用 **前端静态页面 + Node.js 代理服务 + Nginx** 架构。
+基于阿里云百炼工作流的文书润色应用，采用前端静态页面 + Node.js 代理服务 + Nginx。
 
 ## 功能
 - `index.html`：填写目标学校、学生信息、润色要求
 - `result.html`：展示润色结果并支持复制
 - `server.js`：服务端代理百炼 API，保护 API Key
 
-## 目录结构
+## 本地测试
 
-```text
-LoveEssay/
-├── index.html
-├── result.html
-├── server.js
-├── package.json
-├── .env.example
-├── deploy.sh
-├── deploy/
-│   ├── nginx.loveessay.conf
-│   └── loveessay.service
-├── scripts/
-│   └── deploy_server.sh
-└── DEPLOY_PLAN.md
-```
-
-## 本地运行
-
-要求：Node.js 18+
+要求：Node.js 18+。
 
 ```bash
 npm install
 export DASHSCOPE_API_KEY="your-real-key"
+# 可选：export WORKFLOW_APP_ID="your-app-id"
+# 可选：export PORT=6789
 npm start
 ```
 
-本地访问：
-- 页面：`http://localhost:<本地服务端口>`
-- 健康检查：`http://localhost:<本地服务端口>/api/health`
+访问：
+- 页面：`http://127.0.0.1:6789/`
+- 健康检查：`http://127.0.0.1:6789/api/health`
+
+接口测试：
+```bash
+curl -X POST http://127.0.0.1:6789/api/polish \
+  -H 'Content-Type: application/json' \
+  -d '{"school_name":"斯坦福大学","student_info_str":"学生信息...","query":"突出领导力"}'
+```
 
 ## API
 
-### `POST /api/polish`
-
-请求体：
-
-```json
-{
-  "school_name": "斯坦福大学",
-  "student_info_str": "学生详细信息...",
-  "query": "突出领导力"
-}
-```
-
-成功响应：
-
-```json
-{
-  "text": "润色后的文书内容...",
-  "request_id": "xxx"
-}
-```
-
-失败响应：
-
-```json
-{
-  "error": "错误信息",
-  "request_id": "xxx"
-}
-```
+- `POST /api/polish`：提交润色请求
+- `GET /api/health`：健康检查
 
 ## 生产部署
-
-在服务器项目目录执行：
 
 ```bash
 chmod +x deploy.sh scripts/deploy_server.sh
@@ -90,41 +52,27 @@ sudo ./deploy.sh
 
 ## 环境变量
 
-参考 `.env.example`，核心变量：
-- `DASHSCOPE_API_KEY`：百炼 Key（仅服务器保存）
-- `WORKFLOW_APP_ID`：应用 ID
-- `PORT`：代理服务端口（按部署环境配置）
+- `DASHSCOPE_API_KEY`：百炼 Key（必填）
+- `WORKFLOW_APP_ID`：应用 ID（可选）
+- `PORT`：服务端口（默认 6789）
 - `RATE_LIMIT_PER_MINUTE`：单 IP 每分钟请求上限
-- `BASIC_AUTH_USER`：页面/API 访问用户名
-- `BASIC_AUTH_PASS`：页面/API 访问密码
+- `BASIC_AUTH_USER`：页面/API 访问用户名（线上）
+- `BASIC_AUTH_PASS`：页面/API 访问密码（线上）
 
 ## 安全说明
 - 不要把真实 API Key 提交到仓库。
 - 前端仅访问同域 `/api/polish`，避免暴露 Key。
-- 线上通过 Nginx Basic Auth 保护页面和 API。
 
 ## GitHub Actions 自动部署（阿里云 ECS）
 
-已提供工作流文件：
-- `.github/workflows/deploy-aliyun.yml`
+工作流：`.github/workflows/deploy-aliyun.yml`（push 到 `main` 或手动触发）。
 
-触发方式：
-- push 到 `main`
-- 手动触发 `workflow_dispatch`
-
-请在 GitHub 仓库 `Settings -> Secrets and variables -> Actions` 中配置以下 Secrets：
-- `ALIYUN_HOST`：服务器地址（域名或主机名）
-- `ALIYUN_USER`：SSH 用户（通常 `root`）
-- `ALIYUN_SSH_PORT`：SSH 连接端口
-- `ALIYUN_SSH_PRIVATE_KEY`：用于登录服务器的私钥全文（PEM）
-- `ALIYUN_SSH_PASSPHRASE`：如果私钥带口令，则填写该口令；无口令可不配
-- `DASHSCOPE_API_KEY`：百炼 API Key
-- `WORKFLOW_APP_ID`：应用 ID（例如 `6e42604f098e49de9ac0536571b47926`）
-- `BASIC_AUTH_USER`：页面访问用户名
-- `BASIC_AUTH_PASS`：页面访问密码
-
-工作流会自动：
-- 上传代码到 `/root/LoveEssay`
-- 更新 `/etc/loveessay/loveessay.env`
-- 执行 `./deploy.sh`
-- 检查 `loveessay/nginx` 状态并做本地健康检查
+Secrets（最小集）：
+- `ALIYUN_HOST`
+- `ALIYUN_USER`
+- `ALIYUN_SSH_PORT`
+- `ALIYUN_SSH_PRIVATE_KEY`
+- `DASHSCOPE_API_KEY`
+- `WORKFLOW_APP_ID`
+- `BASIC_AUTH_USER`
+- `BASIC_AUTH_PASS`
