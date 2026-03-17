@@ -164,7 +164,7 @@ const draftEssayTask = task('draft_essay', async ({ taskId, schoolName, queryTex
     model: config.models.draft,
     systemPrompt: DRAFT_SYSTEM_PROMPT,
     userPrompt: buildDraftPrompt({ schoolName, queryText, notes, profile }),
-    temperature: 0.6
+    temperature: 0.35
   });
   return response.text;
 });
@@ -176,14 +176,14 @@ const rewriteEssayTask = task('rewrite_essay', async ({ taskId, schoolName, quer
     model: config.models.rewrite,
     systemPrompt: REWRITE_SYSTEM_PROMPT,
     userPrompt: buildRewritePrompt({ schoolName, queryText, notes, profile, draftText }),
-    temperature: 0.5
+    temperature: 0.25
   });
   return response.text;
 });
 
-const factCheckTask = task('fact_check', async ({ taskId, schoolName, profile, essayText }) => {
+const factCheckTask = task('fact_check', async ({ taskId, schoolName, profile, essayText, stageLabel = 'essay' }) => {
   await ensureNotCanceled(taskId);
-  await logStep(taskId, 'fact_check', '开始核查事实一致性');
+  await logStep(taskId, 'fact_check', `开始核查事实一致性（${stageLabel}）`, { stage: stageLabel });
   let response;
   try {
     response = await callDashScopeJson({
@@ -203,14 +203,27 @@ const factCheckTask = task('fact_check', async ({ taskId, schoolName, profile, e
   return response.json;
 });
 
-const repairEssayTask = task('repair_essay', async ({ taskId, schoolName, queryText, notes, profile, essayText, issues }) => {
+const repairEssayTask = task('repair_essay', async ({
+  taskId,
+  schoolName,
+  queryText,
+  notes,
+  profile,
+  essayText,
+  issues,
+  stageLabel = 'essay',
+  attempt = 1
+}) => {
   await ensureNotCanceled(taskId);
-  await logStep(taskId, 'repair_essay', '发现约束问题，开始修复文书');
+  await logStep(taskId, 'repair_essay', `发现约束问题，开始修复文书（${stageLabel} 第 ${attempt} 次）`, {
+    stage: stageLabel,
+    attempt
+  });
   const response = await callDashScopeChat({
     model: config.models.rewrite,
     systemPrompt: REWRITE_SYSTEM_PROMPT,
     userPrompt: buildRepairPrompt({ schoolName, queryText, notes, profile, essayText, issues }),
-    temperature: 0.3
+    temperature: 0.15
   });
   return response.text;
 });
@@ -220,7 +233,8 @@ function normalizeFactCheckResult(result) {
     ...(result?.hard_unsupported_claims || []),
     ...(result?.unsupported_claims || [])
   ]);
-  const softSchoolRiskClaims = dedupeStrings([
+  const softRiskClaims = dedupeStrings([
+    ...(result?.soft_risk_claims || []),
     ...(result?.soft_school_risk_claims || []),
     ...(result?.school_risk_claims || [])
   ]);
@@ -230,12 +244,22 @@ function normalizeFactCheckResult(result) {
   return {
     ok: hardUnsupportedClaims.length === 0 && missingRequiredElements.length === 0,
     hard_unsupported_claims: hardUnsupportedClaims,
-    soft_school_risk_claims: softSchoolRiskClaims,
+    soft_risk_claims: softRiskClaims,
+    soft_school_risk_claims: softRiskClaims,
     missing_required_elements: missingRequiredElements,
     notes,
     hard_issue_count: hardUnsupportedClaims.length + missingRequiredElements.length,
-    soft_issue_count: softSchoolRiskClaims.length
+    soft_issue_count: softRiskClaims.length
   };
+}
+
+function needsRepair({ factCheck, constraints }) {
+  return (
+    !factCheck.ok ||
+    !constraints.ok ||
+    factCheck.soft_issue_count > 0 ||
+    constraints.soft_warnings.length > 0
+  );
 }
 
 function checkConstraints(essayText, schoolName) {
@@ -267,6 +291,85 @@ function checkConstraints(essayText, schoolName) {
     word_count: wordCount,
     hard_issues: hardIssues,
     soft_warnings: softWarnings
+  };
+}
+
+async function validateEssay({ taskId, schoolName, profile, essayText, stageLabel }) {
+  const factCheck = normalizeFactCheckResult(await factCheckTask({
+    taskId,
+    schoolName,
+    profile,
+    essayText,
+    stageLabel
+  }));
+  const constraints = checkConstraints(essayText, schoolName);
+
+  await appendTaskEvent(taskId, 'essay_validation', 'info', `${stageLabel} 校验完成`, {
+    stage: stageLabel,
+    fact_check: factCheck,
+    constraints
+  });
+
+  return {
+    factCheck,
+    constraints,
+    needsRepair: needsRepair({ factCheck, constraints })
+  };
+}
+
+async function repairEssayUntilSettled({
+  taskId,
+  schoolName,
+  queryText,
+  notes,
+  profile,
+  essayText,
+  stageLabel,
+  maxAttempts
+}) {
+  let currentEssay = essayText;
+  let validation = await validateEssay({
+    taskId,
+    schoolName,
+    profile,
+    essayText: currentEssay,
+    stageLabel: `${stageLabel}_initial`
+  });
+  let repairAttempts = 0;
+
+  while (repairAttempts < maxAttempts && validation.needsRepair) {
+    repairAttempts += 1;
+    currentEssay = await repairEssayTask({
+      taskId,
+      schoolName,
+      queryText,
+      notes,
+      profile,
+      essayText: currentEssay,
+      issues: {
+        stage: stageLabel,
+        attempt: repairAttempts,
+        fact_check: validation.factCheck,
+        constraints: validation.constraints
+      },
+      stageLabel,
+      attempt: repairAttempts
+    });
+
+    validation = await validateEssay({
+      taskId,
+      schoolName,
+      profile,
+      essayText: currentEssay,
+      stageLabel: `${stageLabel}_repair_${repairAttempts}`
+    });
+  }
+
+  return {
+    essay: currentEssay,
+    factCheck: validation.factCheck,
+    constraints: validation.constraints,
+    repairAttempts
   };
 }
 
@@ -302,7 +405,7 @@ const workflow = entrypoint({ name: 'loveEssayWorkflow' }, async (input) => {
     profile
   });
 
-  let essay = await draftEssayTask({
+  let draftEssay = await draftEssayTask({
     taskId: input.taskId,
     schoolName: input.schoolName,
     queryText: input.queryText,
@@ -310,46 +413,40 @@ const workflow = entrypoint({ name: 'loveEssayWorkflow' }, async (input) => {
     profile
   });
 
-  essay = await rewriteEssayTask({
+  const draftStage = await repairEssayUntilSettled({
     taskId: input.taskId,
     schoolName: input.schoolName,
     queryText: input.queryText,
     notes: input.notes,
     profile,
-    draftText: essay
+    essayText: draftEssay,
+    stageLabel: 'draft',
+    maxAttempts: 1
   });
 
-  let factCheck = normalizeFactCheckResult(await factCheckTask({
+  let essay = await rewriteEssayTask({
     taskId: input.taskId,
     schoolName: input.schoolName,
+    queryText: input.queryText,
+    notes: input.notes,
     profile,
-    essayText: essay
-  }));
+    draftText: draftStage.essay
+  });
 
-  let constraints = checkConstraints(essay, input.schoolName);
+  const finalStage = await repairEssayUntilSettled({
+    taskId: input.taskId,
+    schoolName: input.schoolName,
+    queryText: input.queryText,
+    notes: input.notes,
+    profile,
+    essayText: essay,
+    stageLabel: 'final',
+    maxAttempts: 2
+  });
 
-  if (!factCheck.ok || !constraints.ok || factCheck.soft_issue_count > 0 || constraints.soft_warnings.length > 0) {
-    essay = await repairEssayTask({
-      taskId: input.taskId,
-      schoolName: input.schoolName,
-      queryText: input.queryText,
-      notes: input.notes,
-      profile,
-      essayText: essay,
-      issues: {
-        fact_check: factCheck,
-        constraints
-      }
-    });
-
-    factCheck = normalizeFactCheckResult(await factCheckTask({
-      taskId: input.taskId,
-      schoolName: input.schoolName,
-      profile,
-      essayText: essay
-    }));
-    constraints = checkConstraints(essay, input.schoolName);
-  }
+  essay = finalStage.essay;
+  const factCheck = finalStage.factCheck;
+  const constraints = finalStage.constraints;
 
   if (!factCheck.ok || !constraints.ok) {
     await appendTaskEvent(input.taskId, 'final_validation', 'error', '修复后仍未满足最终约束', {
@@ -365,6 +462,8 @@ const workflow = entrypoint({ name: 'loveEssayWorkflow' }, async (input) => {
     extraction_count: extractions.length,
     word_count: constraints.word_count,
     guard_warnings: guard.warnings,
+    draft_repair_attempts: draftStage.repairAttempts,
+    final_repair_attempts: finalStage.repairAttempts,
     fact_check: factCheck,
     constraint_warnings: constraints.soft_warnings,
     elapsed_ms: Date.now() - startedAt

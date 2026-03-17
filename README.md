@@ -107,6 +107,7 @@ docker compose up --build -d
 
 - 页面：[http://127.0.0.1:6788](http://127.0.0.1:6788)
 - 健康检查：[http://127.0.0.1:6788/api/health](http://127.0.0.1:6788/api/health)
+- 如果宿主机 `6788` 已被占用，可在 `.env` 中改 `HOST_PORT`，并同步调整 `PUBLIC_BASE_URL`
 
 ## API
 
@@ -135,6 +136,7 @@ curl -X POST http://127.0.0.1:6788/api/tasks \
 ## 环境变量
 
 - `PORT`：Web 服务端口，默认 `6789`
+- `HOST_PORT`：Docker Nginx 绑定的宿主机端口，默认 `6788`
 - `PUBLIC_BASE_URL`：对外访问地址
 - `DASHSCOPE_API_KEY`：阿里云 DashScope Key
 - `APP_LOGIN_USER`：应用登录用户名
@@ -175,4 +177,5 @@ curl -X POST http://127.0.0.1:6788/api/tasks \
 - 兼容旧配置：如果环境里仍使用 `BASIC_AUTH_USER / BASIC_AUTH_PASS`，应用仍可读取，但新部署建议改用 `APP_LOGIN_USER / APP_LOGIN_PASS`
 - GitHub Actions 部署前，ECS 必须预装 `docker` 和 `docker compose`
 - 如果 ECS 无法稳定访问 Docker Hub，优先把 `NODE_BASE_IMAGE / POSTGRES_IMAGE / REDIS_IMAGE / NGINX_IMAGE` 指到你自己的 ACR 镜像
+- 如果 `docker compose up` 提示 `failed to bind host port ... 6788 ... address already in use`，通常是宿主机上旧版 `nginx` 或其他进程占用了 `6788`。处理方式是停掉旧服务，或改用新的 `HOST_PORT`
 - 旧的 `deploy.sh` / `scripts/deploy_server.sh` 是上一版 systemd 部署方式，不再代表当前推荐路径

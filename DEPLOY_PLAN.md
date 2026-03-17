@@ -2,7 +2,7 @@
 
 ## 1. 服务组成
 
-- `nginx`：对外入口，监听宿主机 `6788`
+- `nginx`：对外入口，默认监听宿主机 `6788`，可通过 `HOST_PORT` 改掉
 - `web`：Express API 与静态页面
 - `worker`：BullMQ Worker，执行 LangGraph 工作流
 - `postgres`：任务、结果、事件日志
@@ -42,6 +42,13 @@ NODE_BASE_IMAGE=crpi-n8xq04c9r8533fv2.cn-chengdu.personal.cr.aliyuncs.com/sid729
 POSTGRES_IMAGE=crpi-n8xq04c9r8533fv2.cn-chengdu.personal.cr.aliyuncs.com/sid729/loveessay-postgres:16
 REDIS_IMAGE=crpi-n8xq04c9r8533fv2.cn-chengdu.personal.cr.aliyuncs.com/sid729/loveessay-redis:7
 NGINX_IMAGE=crpi-n8xq04c9r8533fv2.cn-chengdu.personal.cr.aliyuncs.com/sid729/loveessay-nginx:1.27-alpine
+```
+
+如果宿主机 `6788` 已被占用，再额外设置：
+
+```bash
+HOST_PORT=6789
+PUBLIC_BASE_URL=http://127.0.0.1:6789
 ```
 
 ### 2.2 启动服务
@@ -108,23 +115,29 @@ curl -X POST http://127.0.0.1:6788/api/tasks/<task_id>/cancel
 - 检查 `.env`
 - 重启：`docker compose up --build -d`
 
-2. 登录失败
+2. `failed to bind host port ... 6788 ... address already in use`
+- 说明宿主机 `6788` 已被占用，常见原因是旧版 systemd/宿主机 nginx 部署还在运行
+- 先检查占用：`ss -ltnp | grep 6788`
+- 如果确认是旧版 LoveEssay 宿主机 nginx，可停掉后重试
+- 如果该端口不能释放，就把 `.env` 中 `HOST_PORT` 和 `PUBLIC_BASE_URL` 改到新的端口后重试
+
+3. 登录失败
 - 检查 `.env` 中 `APP_LOGIN_USER / APP_LOGIN_PASS`
 - 重启 `web`：`docker compose up -d web`
 
-3. `Word 文件解析成功，但未提取到文本内容`
+4. `Word 文件解析成功，但未提取到文本内容`
 - 检查上传的 `.docx` 是否为真实 Word 文件
 - 检查文件是否主要由图片组成
 
-4. `任务一直停留在 queued`
+5. `任务一直停留在 queued`
 - 检查 `worker` 是否启动
 - 查看：`docker compose logs worker`
 
-5. `健康检查失败`
+6. `健康检查失败`
 - 查看 `postgres` / `redis` 是否 healthy
 - 运行：`docker compose ps`
 
-6. LangSmith 没有 trace
+7. LangSmith 没有 trace
 - 确认 `.env` 中 `LANGSMITH_TRACING=true`
 - 确认 `LANGSMITH_API_KEY` 正确
 - 查看 `worker` 日志是否有 LangSmith 上报错误

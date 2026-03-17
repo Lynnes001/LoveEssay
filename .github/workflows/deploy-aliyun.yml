@@ -84,6 +84,7 @@ jobs:
           DRAFT_MODEL: ${{ vars.DRAFT_MODEL }}
           REWRITE_MODEL: ${{ vars.REWRITE_MODEL }}
           CHECK_MODEL: ${{ vars.CHECK_MODEL }}
+          HOST_PORT: ${{ vars.HOST_PORT }}
           ACR_USERNAME: ${{ vars.ACR_USERNAME }}
           ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
           DOCKER_PLATFORM: ${{ vars.DOCKER_PLATFORM }}
@@ -97,7 +98,7 @@ jobs:
           key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.ALIYUN_SSH_PASSPHRASE }}
           port: 22
-          envs: DASHSCOPE_API_KEY,APP_LOGIN_USER,APP_LOGIN_PASS,AUTH_SESSION_SECRET,AUTH_SESSION_TTL_SECONDS,AUTH_SECURE_COOKIE,LANGSMITH_TRACING,LANGSMITH_API_KEY,LANGSMITH_PROJECT,LANGSMITH_ENDPOINT,LANGSMITH_WORKSPACE_ID,EXTRACT_MODEL,DRAFT_MODEL,REWRITE_MODEL,CHECK_MODEL,ACR_USERNAME,ACR_PASSWORD,DOCKER_PLATFORM,NODE_BASE_IMAGE,POSTGRES_IMAGE,REDIS_IMAGE,NGINX_IMAGE
+          envs: DASHSCOPE_API_KEY,APP_LOGIN_USER,APP_LOGIN_PASS,AUTH_SESSION_SECRET,AUTH_SESSION_TTL_SECONDS,AUTH_SECURE_COOKIE,LANGSMITH_TRACING,LANGSMITH_API_KEY,LANGSMITH_PROJECT,LANGSMITH_ENDPOINT,LANGSMITH_WORKSPACE_ID,EXTRACT_MODEL,DRAFT_MODEL,REWRITE_MODEL,CHECK_MODEL,HOST_PORT,ACR_USERNAME,ACR_PASSWORD,DOCKER_PLATFORM,NODE_BASE_IMAGE,POSTGRES_IMAGE,REDIS_IMAGE,NGINX_IMAGE
           script: |
             set -euo pipefail
             if [ -z "${DASHSCOPE_API_KEY:-}" ]; then
@@ -130,7 +131,8 @@ jobs:
             LANGSMITH_ENDPOINT=${LANGSMITH_ENDPOINT:-}
             LANGSMITH_WORKSPACE_ID=${LANGSMITH_WORKSPACE_ID:-}
             PORT=6789
-            PUBLIC_BASE_URL=http://127.0.0.1:6788
+            HOST_PORT=${HOST_PORT:-6788}
+            PUBLIC_BASE_URL=http://127.0.0.1:${HOST_PORT:-6788}
             DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
             EXTRACT_MODEL=${EXTRACT_MODEL:-qwen3.5-plus}
             DRAFT_MODEL=${DRAFT_MODEL:-qwen3.5-plus}
@@ -156,7 +158,7 @@ jobs:
 
             ok=0
             for i in $(seq 1 30); do
-              if curl -sS --fail http://127.0.0.1:6788/api/health > /dev/null; then
+              if curl -sS --fail http://127.0.0.1:${HOST_PORT:-6788}/api/health > /dev/null; then
                 ok=1
                 break
               fi
