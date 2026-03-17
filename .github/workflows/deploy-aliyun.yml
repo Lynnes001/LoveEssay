@@ -84,13 +84,19 @@ jobs:
           DRAFT_MODEL: ${{ vars.DRAFT_MODEL }}
           REWRITE_MODEL: ${{ vars.REWRITE_MODEL }}
           CHECK_MODEL: ${{ vars.CHECK_MODEL }}
+          ACR_USERNAME: ${{ vars.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+          NODE_BASE_IMAGE: ${{ vars.NODE_BASE_IMAGE }}
+          POSTGRES_IMAGE: ${{ vars.POSTGRES_IMAGE }}
+          REDIS_IMAGE: ${{ vars.REDIS_IMAGE }}
+          NGINX_IMAGE: ${{ vars.NGINX_IMAGE }}
         with:
           host: ${{ secrets.ALIYUN_HOST }}
           username: ${{ vars.ALIYUN_USER }}
           key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.ALIYUN_SSH_PASSPHRASE }}
           port: 22
-          envs: DASHSCOPE_API_KEY,APP_LOGIN_USER,APP_LOGIN_PASS,AUTH_SESSION_SECRET,AUTH_SESSION_TTL_SECONDS,AUTH_SECURE_COOKIE,LANGSMITH_TRACING,LANGSMITH_API_KEY,LANGSMITH_PROJECT,LANGSMITH_ENDPOINT,LANGSMITH_WORKSPACE_ID,EXTRACT_MODEL,DRAFT_MODEL,REWRITE_MODEL,CHECK_MODEL
+          envs: DASHSCOPE_API_KEY,APP_LOGIN_USER,APP_LOGIN_PASS,AUTH_SESSION_SECRET,AUTH_SESSION_TTL_SECONDS,AUTH_SECURE_COOKIE,LANGSMITH_TRACING,LANGSMITH_API_KEY,LANGSMITH_PROJECT,LANGSMITH_ENDPOINT,LANGSMITH_WORKSPACE_ID,EXTRACT_MODEL,DRAFT_MODEL,REWRITE_MODEL,CHECK_MODEL,ACR_USERNAME,ACR_PASSWORD,NODE_BASE_IMAGE,POSTGRES_IMAGE,REDIS_IMAGE,NGINX_IMAGE
           script: |
             set -euo pipefail
             if [ -z "${DASHSCOPE_API_KEY:-}" ]; then
@@ -103,6 +109,10 @@ jobs:
             fi
 
             cd /root/LoveEssay
+
+            if [ -n "${ACR_USERNAME:-}" ] && [ -n "${ACR_PASSWORD:-}" ]; then
+              echo "${ACR_PASSWORD}" | docker login --username "${ACR_USERNAME}" --password-stdin crpi-n8xq04c9r8533fv2.cn-chengdu.personal.cr.aliyuncs.com
+            fi
 
             mkdir -p uploads pgdata redis-data
 
@@ -133,6 +143,10 @@ jobs:
             DATABASE_URL=postgresql://loveessay:loveessay@postgres:5432/loveessay
             REDIS_URL=redis://redis:6379
             QUEUE_NAME=loveessay-tasks
+            NODE_BASE_IMAGE=${NODE_BASE_IMAGE:-node:20-bookworm-slim}
+            POSTGRES_IMAGE=${POSTGRES_IMAGE:-postgres:16}
+            REDIS_IMAGE=${REDIS_IMAGE:-redis:7}
+            NGINX_IMAGE=${NGINX_IMAGE:-nginx:1.27-alpine}
             EOT
 
             docker compose down --remove-orphans

@@ -80,6 +80,13 @@ cp .env.example .env
 - `DASHSCOPE_API_KEY`
 - `APP_LOGIN_USER`
 - `APP_LOGIN_PASS`
+- 如果 ECS 不能稳定访问 Docker Hub，建议同时填写：
+  - `ACR_USERNAME`
+  - `ACR_PASSWORD`
+  - `NODE_BASE_IMAGE`
+  - `POSTGRES_IMAGE`
+  - `REDIS_IMAGE`
+  - `NGINX_IMAGE`
 - 如果要看 tracing，再填写：
   - `LANGSMITH_TRACING=true`
   - `LANGSMITH_API_KEY`
@@ -151,6 +158,12 @@ curl -X POST http://127.0.0.1:6788/api/tasks \
 - `UPLOAD_DIR`
 - `MAX_UPLOAD_SIZE_MB`
 - `RATE_LIMIT_PER_MINUTE`
+- `ACR_USERNAME`：可选，部署时用于自动登录 ACR
+- `ACR_PASSWORD`：可选，部署时用于自动登录 ACR
+- `NODE_BASE_IMAGE`：`web/worker` 构建使用的 Node 基础镜像，默认 `node:20-bookworm-slim`
+- `POSTGRES_IMAGE`：Postgres 基础镜像，默认 `postgres:16`
+- `REDIS_IMAGE`：Redis 基础镜像，默认 `redis:7`
+- `NGINX_IMAGE`：Nginx 基础镜像，默认 `nginx:1.27-alpine`
 
 ## 注意事项
 
@@ -160,4 +173,5 @@ curl -X POST http://127.0.0.1:6788/api/tasks \
 - 生产部署默认通过固定 `/login` 页面保护页面和任务 API，替代浏览器原生 Basic Auth 弹窗
 - 兼容旧配置：如果环境里仍使用 `BASIC_AUTH_USER / BASIC_AUTH_PASS`，应用仍可读取，但新部署建议改用 `APP_LOGIN_USER / APP_LOGIN_PASS`
 - GitHub Actions 部署前，ECS 必须预装 `docker` 和 `docker compose`
+- 如果 ECS 无法稳定访问 Docker Hub，优先把 `NODE_BASE_IMAGE / POSTGRES_IMAGE / REDIS_IMAGE / NGINX_IMAGE` 指到你自己的 ACR 镜像
 - 旧的 `deploy.sh` / `scripts/deploy_server.sh` 是上一版 systemd 部署方式，不再代表当前推荐路径
