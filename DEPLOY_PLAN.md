@@ -37,6 +37,7 @@ DRAFT_MODEL=qwen3.5-plus
 REWRITE_MODEL=qwen3-14b-81bba393c391
 CHECK_MODEL=qwen3.5-plus
 ACR_USERNAME=your-acr-username
+DOCKER_PLATFORM=linux/amd64
 NODE_BASE_IMAGE=crpi-n8xq04c9r8533fv2.cn-chengdu.personal.cr.aliyuncs.com/sid729/loveessay-node:20-bookworm-slim
 POSTGRES_IMAGE=crpi-n8xq04c9r8533fv2.cn-chengdu.personal.cr.aliyuncs.com/sid729/loveessay-postgres:16
 REDIS_IMAGE=crpi-n8xq04c9r8533fv2.cn-chengdu.personal.cr.aliyuncs.com/sid729/loveessay-redis:7

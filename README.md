@@ -160,6 +160,7 @@ curl -X POST http://127.0.0.1:6788/api/tasks \
 - `RATE_LIMIT_PER_MINUTE`
 - `ACR_USERNAME`：可选，部署时用于自动登录 ACR
 - `ACR_PASSWORD`：可选，部署时用于自动登录 ACR
+- `DOCKER_PLATFORM`：可选，本地通常留空；云端部署可设为 `linux/amd64`
 - `NODE_BASE_IMAGE`：`web/worker` 构建使用的 Node 基础镜像，默认 `node:20-bookworm-slim`
 - `POSTGRES_IMAGE`：Postgres 基础镜像，默认 `postgres:16`
 - `REDIS_IMAGE`：Redis 基础镜像，默认 `redis:7`

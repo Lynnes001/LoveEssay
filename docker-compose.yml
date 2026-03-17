@@ -1,6 +1,7 @@
 services:
   postgres:
     image: ${POSTGRES_IMAGE:-postgres:16}
+    platform: ${DOCKER_PLATFORM:-}
     environment:
       POSTGRES_DB: loveessay
       POSTGRES_USER: loveessay
@@ -16,6 +17,7 @@ services:
 
   redis:
     image: ${REDIS_IMAGE:-redis:7}
+    platform: ${DOCKER_PLATFORM:-}
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - ./redis-data:/data
@@ -26,6 +28,7 @@ services:
       retries: 10
 
   web:
+    platform: ${DOCKER_PLATFORM:-}
     build:
       context: .
       dockerfile: Dockerfile
@@ -63,6 +66,7 @@ services:
         condition: service_healthy
 
   worker:
+    platform: ${DOCKER_PLATFORM:-}
     build:
       context: .
       dockerfile: Dockerfile
@@ -94,6 +98,7 @@ services:
 
   nginx:
     image: ${NGINX_IMAGE:-nginx:1.27-alpine}
+    platform: ${DOCKER_PLATFORM:-}
     ports:
       - "6788:80"
     volumes:
