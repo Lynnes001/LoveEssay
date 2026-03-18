@@ -8,24 +8,37 @@
 </head>
 <body class="app-page">
     <div class="page-shell">
-        <section class="page-hero story">
+        <section class="page-hero sticky">
             <p class="brand-kicker">LoveEssay Access</p>
-            <h1>进入同一套文书工作台，而不是三个风格各异的页面。</h1>
-            <p>登录之后即可进入材料上传、异步任务追踪和结果查看页面。这里保留单账号入口，主要用于替代浏览器难以控制的 Basic Auth 弹窗体验。</p>
+            <h1>进入同一套顾问工作台，而不是被浏览器弹窗打断的登录流程。</h1>
+            <p>这里保留单账号入口，用来替代难以控制的 Basic Auth 体验。登录后可以连续完成材料上传、异步任务追踪和结果查看，不需要在不同风格的页面之间切换。</p>
+
             <div class="chips">
-                <span class="chip">统一工作台界面</span>
-                <span class="chip">材料上传</span>
-                <span class="chip">任务状态追踪</span>
-                <span class="chip">结果复制回传</span>
+                <span class="chip">单入口访问</span>
+                <span class="chip">统一界面语言</span>
+                <span class="chip">结果页自动跳转</span>
+                <span class="chip">错误后可直接重试</span>
             </div>
-            <div class="hero-notes">
-                <div class="hero-note">
-                    <strong>部署账号登录</strong>
-                    <span>使用部署环境里配置的用户名和密码，无需额外注册流程。</span>
+
+            <div class="hero-stat-grid">
+                <div class="hero-stat">
+                    <strong>同一会话</strong>
+                    <span>登录后即可连续完成提交、查看状态和复制结果，不需要反复认证。</span>
                 </div>
-                <div class="hero-note">
-                    <strong>重新输入更直接</strong>
-                    <span>输错后直接停留在当前页修正，不再被浏览器原生认证弹窗打断。</span>
+                <div class="hero-stat">
+                    <strong>更少打断</strong>
+                    <span>输错密码时直接停留当前页修正，不再被浏览器原生弹窗反复抢焦点。</span>
+                </div>
+            </div>
+
+            <div class="hero-outline">
+                <div class="outline-card">
+                    <strong>适合部署环境</strong>
+                    <span>使用部署时配置的用户名与密码，无需注册、找回密码或额外账户体系。</span>
+                </div>
+                <div class="outline-card">
+                    <strong>适合顾问工作流</strong>
+                    <span>登录后进入固定工作台，后续的材料提交与结果查看都沿用同一视觉和信息结构。</span>
                 </div>
             </div>
         </section>
@@ -35,24 +48,43 @@
                 <div class="panel-header">
                     <p class="panel-eyebrow">Secure Sign In</p>
                     <h2 class="panel-title">账号登录</h2>
-                    <p class="panel-subtitle">输入部署环境中配置的用户名和密码，进入文书工作台。</p>
+                    <p class="panel-subtitle">输入部署环境中配置的用户名和密码，进入文书工作台。这个页面只解决访问控制，不增加额外注册和账户管理负担。</p>
+                </div>
+
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <strong>访问方式</strong>
+                        <span>单一账号入口，适合内部使用或受控部署。</span>
+                    </div>
+                    <div class="summary-card">
+                        <strong>登录之后</strong>
+                        <span>会直接进入同一套任务工作台，不会切换成另一种界面语气。</span>
+                    </div>
+                    <div class="summary-card">
+                        <strong>错误处理</strong>
+                        <span>密码输错后留在当前页修正，减少操作中断。</span>
+                    </div>
                 </div>
 
                 <form id="loginForm">
                     <div class="error" id="errorBox"></div>
 
-                    <div class="field">
-                        <label for="username">用户名</label>
-                        <input id="username" name="username" type="text" autocomplete="username" required>
+                    <div class="form-section">
+                        <div class="field">
+                            <label for="username">用户名</label>
+                            <input id="username" name="username" type="text" autocomplete="username" placeholder="输入部署用户名" required>
+                        </div>
+
+                        <div class="field">
+                            <label for="password">密码</label>
+                            <input id="password" name="password" type="password" autocomplete="current-password" placeholder="输入部署密码" required>
+                        </div>
                     </div>
 
-                    <div class="field">
-                        <label for="password">密码</label>
-                        <input id="password" name="password" type="password" autocomplete="current-password" required>
+                    <div class="form-footer">
+                        <button class="submit-btn" id="submitBtn" type="submit">进入工作台</button>
+                        <p class="hint">如果刚输错过密码，现在可以直接在这个页面重新输入，不需要再和浏览器认证弹窗对抗。</p>
                     </div>
-
-                    <button class="submit-btn" id="submitBtn" type="submit">进入工作台</button>
-                    <p class="hint">如果刚输错过密码，现在可以直接在这个页面重新输入，不需要和浏览器认证弹窗对抗。</p>
                 </form>
             </div>
         </section>

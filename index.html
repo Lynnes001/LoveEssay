@@ -8,24 +8,54 @@
 </head>
 <body class="app-page">
     <div class="page-shell">
-        <section class="page-hero">
-            <p class="brand-kicker">LoveEssay Workflow</p>
-            <h1 class="page-title">把材料整理成更稳、更准的申请表达。</h1>
-            <p class="page-copy">上传学生材料、补充策略边界、指定目标学校，系统会基于现有工作流生成一版更克制、更有说服力的英文文书结果。</p>
+        <section class="page-hero sticky">
+            <p class="brand-kicker">LoveEssay Desk</p>
+            <h1 class="page-title">把零散素材收口成一篇可信、克制、学校匹配度更高的申请表达。</h1>
+            <p class="page-copy">这不是一张轻飘飘的生成表单，而是一套文书顾问工作台。上传学生材料，写清楚策略边界与禁写内容，再把目标学校交给工作流去生成、修订和校验。</p>
+
             <div class="hero-chip-row">
-                <span class="hero-chip">Word 材料上传</span>
-                <span class="hero-chip">学校定制要求</span>
-                <span class="hero-chip">补充备注约束</span>
-                <span class="hero-chip">异步结果追踪</span>
+                <span class="hero-chip">`.docx` 材料收口</span>
+                <span class="hero-chip">学校定制策略</span>
+                <span class="hero-chip">事实边界控制</span>
+                <span class="hero-chip">异步状态追踪</span>
             </div>
-            <div class="hero-notes">
-                <div class="hero-note">
-                    <strong>输入尽量完整</strong>
-                    <span>活动、奖项、课程、推荐维度和家庭备注都可以合并进同一个 Word 文件。</span>
+
+            <div class="hero-stat-grid">
+                <div class="hero-stat">
+                    <strong>1 份材料</strong>
+                    <span>活动、奖项、课程、家庭备注和顾问补充都可以汇总进同一个 Word 文件。</span>
                 </div>
-                <div class="hero-note">
-                    <strong>要求尽量具体</strong>
-                    <span>如果希望突出领导力、学术潜力或选校匹配度，直接写在润色要求里更稳定。</span>
+                <div class="hero-stat">
+                    <strong>3 类约束</strong>
+                    <span>学校、润色要求、补充说明分别负责目标、强调点和事实边界。</span>
+                </div>
+                <div class="hero-stat">
+                    <strong>5 步流程</strong>
+                    <span>从材料解析到事实修复，减少只改表面语气、不控风险的问题。</span>
+                </div>
+            </div>
+
+            <div class="hero-process">
+                <div class="process-card">
+                    <div class="process-index">01</div>
+                    <div>
+                        <strong>先把输入收干净</strong>
+                        <span>完整材料比花哨提示词更重要。时间线、角色、奖项级别、课程难度越清晰，后面生成越稳定。</span>
+                    </div>
+                </div>
+                <div class="process-card">
+                    <div class="process-index">02</div>
+                    <div>
+                        <strong>再写学校与策略</strong>
+                        <span>把希望突出领导力、研究潜力、跨学科兴趣或选校匹配度写清楚，模型会更容易抓住重点。</span>
+                    </div>
+                </div>
+                <div class="process-card">
+                    <div class="process-index">03</div>
+                    <div>
+                        <strong>最后补事实边界</strong>
+                        <span>顾问备注、家长提醒、禁写内容、不能过度演绎的细节，都建议放进补充说明里。</span>
+                    </div>
                 </div>
             </div>
         </section>
@@ -36,45 +66,81 @@
             </div>
             <div class="panel-body">
                 <div class="panel-header">
-                    <p class="panel-eyebrow">Application Draft</p>
+                    <p class="panel-eyebrow">Essay Workflow</p>
                     <h2 class="panel-title">新建文书润色任务</h2>
-                    <p class="panel-subtitle">保持原有事实基础不变，重点调整表达密度、结构节奏和学校适配度。</p>
+                    <p class="panel-subtitle">保持事实不变，重点优化叙述顺序、论证密度和学校适配度。表单按顾问真实工作流拆成三段，方便你一次把目标、策略和边界写明白。</p>
+                </div>
+
+                <div class="trust-grid">
+                    <div class="trust-card">
+                        <strong>给学校</strong>
+                        <span>输入明确学校名称，方便后续表达往招生偏好和项目语境靠近。</span>
+                    </div>
+                    <div class="trust-card">
+                        <strong>给策略</strong>
+                        <span>润色要求负责决定该突出什么，不建议把事实和策略混在一起写。</span>
+                    </div>
+                    <div class="trust-card">
+                        <strong>给边界</strong>
+                        <span>补充说明专门用来写顾问判断、禁写内容和风险控制。</span>
+                    </div>
                 </div>
 
                 <form class="form" id="formContainer">
                     <div class="error-msg" id="errorMsg"></div>
 
-                    <div class="form-group">
-                        <label for="school_name">目标学校名称</label>
-                        <input type="text" id="school_name" name="school_name" placeholder="例如：Stanford University" required>
+                    <div class="form-section">
+                        <div class="section-label">
+                            <strong>目标学校</strong>
+                            <span>先告诉系统这篇文书要服务谁</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="school_name">目标学校名称</label>
+                            <input type="text" id="school_name" name="school_name" placeholder="例如：Stanford University" required>
+                            <p class="hint">建议填写正式英文校名，减少后续学校定位偏差。</p>
+                        </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="query">润色要求（可选）</label>
-                        <input type="text" id="query" name="query" placeholder="例如：突出领导力，强调科研经历">
-                        <p class="hint">如果没有额外策略要求，可以留空，系统会使用默认英文个人陈述提示词。</p>
+                    <div class="form-section">
+                        <div class="section-label">
+                            <strong>表达策略</strong>
+                            <span>决定希望这版文书重点强调什么</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="query">润色要求（可选）</label>
+                            <input type="text" id="query" name="query" placeholder="例如：突出领导力，强调科研经历与学术潜力">
+                            <p class="hint">如果没有额外策略要求，可以留空，系统会使用默认英文个人陈述提示词。</p>
+                        </div>
+                        <div class="form-group">
+                            <label for="notes">补充说明（可选）</label>
+                            <textarea id="notes" name="notes" placeholder="补充说明材料来源、顾问判断、家长提醒、禁写内容、事实边界等"></textarea>
+                            <p class="hint">适合写“不要过度包装”“不要虚构学校联系”“不能强调某段经历”等高优先级约束。</p>
+                        </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="notes">补充说明（可选）</label>
-                        <textarea id="notes" name="notes" placeholder="可补充说明材料来源、希望强调的主题、注意不要写入文书的内容等"></textarea>
-                        <p class="hint">适合填写顾问备注、家长提醒、禁写内容、事实边界等额外约束。</p>
+                    <div class="form-section">
+                        <div class="section-label">
+                            <strong>材料上传</strong>
+                            <span>把可用事实一次交全，减少往返</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="material_file">学生材料 Word 文件</label>
+                            <input type="file" id="material_file" name="material_file" accept=".docx" required>
+                            <p class="hint">当前仅支持 `.docx`。可混合简历、活动列表、课程信息、学校说明和补充备注。</p>
+                        </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="material_file">学生材料 Word 文件</label>
-                        <input type="file" id="material_file" name="material_file" accept=".docx" required>
-                        <p class="hint">当前仅支持 `.docx`。可以混合简历、活动列表、学校说明和补充备注。</p>
+                    <div class="form-footer">
+                        <button type="submit" class="submit-btn" id="submitBtn">提交进入工作流</button>
+                        <p class="hint">提交后会自动跳转到结果页，持续显示状态、输入摘要和最终文稿。</p>
                     </div>
-
-                    <button type="submit" class="submit-btn" id="submitBtn">提交任务</button>
                 </form>
 
                 <div class="loading" id="loading">
                     <div class="loading-card">
                         <div class="spinner"></div>
                         <p>任务已提交，正在进入工作流。</p>
-                        <p class="hint">系统会先解析材料，再开始生成和校验文书内容。</p>
+                        <p class="hint">系统会先解析材料，再开始生成、校验并修复文书内容。</p>
                     </div>
                 </div>
             </div>
