@@ -77,12 +77,14 @@ test('github actions deployment provisions postgres and pgadmin environment vari
   assert.match(workflow, /POSTGRES_DB:/);
   assert.match(workflow, /POSTGRES_USER:/);
   assert.match(workflow, /POSTGRES_PASSWORD:/);
+  assert.match(workflow, /PGADMIN_IMAGE:/);
   assert.match(workflow, /PGADMIN_DEFAULT_EMAIL:/);
   assert.match(workflow, /PGADMIN_DEFAULT_PASSWORD:/);
-  assert.match(workflow, /envs: .*POSTGRES_DB,POSTGRES_USER,POSTGRES_PASSWORD,PGADMIN_DEFAULT_EMAIL,PGADMIN_DEFAULT_PASSWORD/);
+  assert.match(workflow, /envs: .*POSTGRES_DB,POSTGRES_USER,POSTGRES_PASSWORD,PGADMIN_IMAGE,PGADMIN_DEFAULT_EMAIL,PGADMIN_DEFAULT_PASSWORD/);
   assert.match(workflow, /POSTGRES_DB=\$\{POSTGRES_DB:-loveessay\}/);
   assert.match(workflow, /POSTGRES_USER=\$\{POSTGRES_USER:-loveessay\}/);
   assert.match(workflow, /POSTGRES_PASSWORD=\$\{POSTGRES_PASSWORD:-loveessay\}/);
+  assert.match(workflow, /PGADMIN_IMAGE=\$\{PGADMIN_IMAGE:-dpage\/pgadmin4:8\.14\}/);
   assert.match(workflow, /PGADMIN_DEFAULT_EMAIL=\$\{PGADMIN_DEFAULT_EMAIL:-admin@example.com\}/);
   assert.match(workflow, /缺少 pgAdmin 登录密码配置: PGADMIN_DEFAULT_PASSWORD/);
   assert.doesNotMatch(workflow, /PGADMIN_DEFAULT_PASSWORD=\$\{PGADMIN_DEFAULT_PASSWORD:-change-pgadmin-password\}/);
