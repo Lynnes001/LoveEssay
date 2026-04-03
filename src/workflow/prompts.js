@@ -102,7 +102,7 @@ function buildGroundingBlock(profile) {
   return lines.join('\n');
 }
 
-export function buildExtractionPrompt({ schoolName, queryText, notes, chunk }) {
+export function buildExtractionPrompt({ schoolName, chunk }) {
   return `
 你正在处理一份申请材料的一个片段。材料可能混合：
 - 学生简历/活动列表
@@ -111,8 +111,6 @@ export function buildExtractionPrompt({ schoolName, queryText, notes, chunk }) {
 - 其他背景说明
 
 目标学校：${schoolName}
-用户润色要求：${queryText || '未提供'}
-补充备注：${notes || '未提供'}
 当前片段类型提示：${chunk.section_type}
 
 请严格只根据下面片段提取事实，不得脑补。输出 JSON，字段必须存在：

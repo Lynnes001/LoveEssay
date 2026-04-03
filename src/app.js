@@ -175,6 +175,13 @@ app.use((err, req, res, next) => {
     removeUploadedFile(req.file.path).catch(() => {});
   }
 
+  console.error('Unhandled app error:', {
+    method: req.method,
+    path: req.originalUrl,
+    message: err?.message || 'unknown error',
+    stack: err?.stack || null
+  });
+
   if (err instanceof ValidationError) {
     res.status(err.statusCode).json({ error: err.message });
     return;

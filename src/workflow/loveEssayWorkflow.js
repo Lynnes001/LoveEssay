@@ -1,5 +1,6 @@
 import { entrypoint, task } from '@langchain/langgraph';
 import { config } from '../config.js';
+import { annotateTaskError } from '../services/taskFailure.js';
 import { createTraceable } from '../services/tracing.js';
 import {
   appendTaskEvent,
@@ -39,26 +40,43 @@ async function logStep(taskId, step, message, payload = null, updateStep = true)
 const parseDocxTask = task('parse_docx', async ({ taskId, filePath }) => {
   await ensureNotCanceled(taskId);
   await logStep(taskId, 'parse_docx', '开始解析 Word 材料');
-  const parsed = await parseDocx(filePath);
-  await appendTaskEvent(taskId, 'parse_docx', 'info', 'Word 材料解析完成', {
-    characters: parsed.content.length
-  });
-  return parsed;
+  try {
+    const parsed = await parseDocx(filePath);
+    await appendTaskEvent(taskId, 'parse_docx', 'info', 'Word 材料解析完成', {
+      characters: parsed.content.length
+    });
+    return parsed;
+  } catch (error) {
+    throw annotateTaskError(error, {
+      step: 'parse_docx',
+      publicMessage: 'Word 材料解析失败',
+      details: {
+        file_path: filePath
+      }
+    });
+  }
 });
 
 const segmentTask = task('segment_material', async ({ taskId, text }) => {
   await ensureNotCanceled(taskId);
   await logStep(taskId, 'segment_material', '开始切分材料');
-  const sections = segmentIntoSections(text);
-  const chunks = await buildChunksFromSections(sections);
-  await appendTaskEvent(taskId, 'segment_material', 'info', '材料切分完成', {
-    sections: sections.length,
-    chunks: chunks.length
-  });
-  return { sections, chunks };
+  try {
+    const sections = segmentIntoSections(text);
+    const chunks = await buildChunksFromSections(sections);
+    await appendTaskEvent(taskId, 'segment_material', 'info', '材料切分完成', {
+      sections: sections.length,
+      chunks: chunks.length
+    });
+    return { sections, chunks };
+  } catch (error) {
+    throw annotateTaskError(error, {
+      step: 'segment_material',
+      publicMessage: '材料切分失败'
+    });
+  }
 });
 
-const extractFactsTask = task('extract_facts', async ({ taskId, schoolName, queryText, notes, chunk, progressLabel }) => {
+const extractFactsTask = task('extract_facts', async ({ taskId, schoolName, chunk, progressLabel }) => {
   await ensureNotCanceled(taskId);
   await logStep(taskId, `extract_facts ${progressLabel}`, `开始抽取事实 ${progressLabel}`, {
     progress: progressLabel,
@@ -70,7 +88,7 @@ const extractFactsTask = task('extract_facts', async ({ taskId, schoolName, quer
     response = await callDashScopeJson({
       model: config.models.extract,
       systemPrompt: EXTRACTION_SYSTEM_PROMPT,
-      userPrompt: buildExtractionPrompt({ schoolName, queryText, notes, chunk }),
+      userPrompt: buildExtractionPrompt({ schoolName, chunk }),
       temperature: 0.1
     });
   } catch (error) {
@@ -81,7 +99,15 @@ const extractFactsTask = task('extract_facts', async ({ taskId, schoolName, quer
       raw_preview: truncate(error.rawText, 1200),
       repaired_preview: truncate(error.repairedText, 1200)
     });
-    throw error;
+    throw annotateTaskError(error, {
+      step: 'extract_facts',
+      publicMessage: '片段事实抽取失败',
+      details: {
+        progress: progressLabel,
+        section_type: chunk.section_type,
+        chunk_index: chunk.chunk_index
+      }
+    });
   }
   await appendTaskEvent(taskId, 'extract_facts', 'info', '片段事实抽取完成', {
     progress: progressLabel,
@@ -125,60 +151,88 @@ function mergeProfile(extractions, notes) {
 const mergeProfileTask = task('merge_profile', async ({ taskId, sections, extractions, notes }) => {
   await ensureNotCanceled(taskId);
   await logStep(taskId, 'merge_profile', '开始合并结构化资料');
-  const profile = mergeProfile(extractions, notes);
-  await updateTaskArtifacts(taskId, {
-    profile,
-    sections: {
-      count: sections.length,
-      preview: sections.slice(0, 8).map((section) => ({
-        id: section.id,
-        type: section.type,
-        preview: truncate(section.content, 240)
-      }))
-    }
-  });
-  return profile;
+  try {
+    const profile = mergeProfile(extractions, notes);
+    await updateTaskArtifacts(taskId, {
+      profile,
+      sections: {
+        count: sections.length,
+        preview: sections.slice(0, 8).map((section) => ({
+          id: section.id,
+          type: section.type,
+          preview: truncate(section.content, 240)
+        }))
+      }
+    });
+    return profile;
+  } catch (error) {
+    throw annotateTaskError(error, {
+      step: 'merge_profile',
+      publicMessage: '结构化资料合并失败'
+    });
+  }
 });
 
 const profileGuardTask = task('profile_guard', async ({ taskId, profile }) => {
   await ensureNotCanceled(taskId);
   await logStep(taskId, 'profile_guard', '检查资料完整性');
 
-  if (profile.experiences.length === 0 && profile.achievements.length === 0) {
-    throw new Error('上传的 Word 材料缺少足够的学生经历，暂时无法生成文书');
-  }
+  try {
+    if (profile.experiences.length === 0 && profile.achievements.length === 0) {
+      throw new Error('上传的 Word 材料缺少足够的学生经历，暂时无法生成文书');
+    }
 
-  if (profile.intended_interests.length === 0) {
-    throw new Error('上传的 Word 材料未能识别出明确的兴趣方向，请补充专业兴趣或课程信息');
-  }
+    if (profile.intended_interests.length === 0) {
+      throw new Error('上传的 Word 材料未能识别出明确的兴趣方向，请补充专业兴趣或课程信息');
+    }
 
-  return {
-    warnings: profile.school_specific_info.length === 0 ? ['未识别到明确的校本信息，why school 段落会保持克制'] : []
-  };
+    return {
+      warnings: profile.school_specific_info.length === 0 ? ['未识别到明确的校本信息，why school 段落会保持克制'] : []
+    };
+  } catch (error) {
+    throw annotateTaskError(error, {
+      step: 'profile_guard',
+      publicMessage: error.message
+    });
+  }
 });
 
 const draftEssayTask = task('draft_essay', async ({ taskId, schoolName, queryText, notes, profile }) => {
   await ensureNotCanceled(taskId);
   await logStep(taskId, 'draft_essay', '开始生成英文初稿');
-  const response = await callDashScopeChat({
-    model: config.models.draft,
-    systemPrompt: DRAFT_SYSTEM_PROMPT,
-    userPrompt: buildDraftPrompt({ schoolName, queryText, notes, profile }),
-    temperature: 0.35
-  });
-  return response.text;
+  try {
+    const response = await callDashScopeChat({
+      model: config.models.draft,
+      systemPrompt: DRAFT_SYSTEM_PROMPT,
+      userPrompt: buildDraftPrompt({ schoolName, queryText, notes, profile }),
+      temperature: 0.35
+    });
+    return response.text;
+  } catch (error) {
+    throw annotateTaskError(error, {
+      step: 'draft_essay',
+      publicMessage: '生成英文初稿失败'
+    });
+  }
 });
 
 const rewriteEssayTask = task('rewrite_essay', async ({ taskId, schoolName, queryText, notes, profile, draftText }) => {
   await ensureNotCanceled(taskId);
   await logStep(taskId, 'rewrite_essay', '开始优化语言风格');
-  const response = await callDashScopeChat({
-    model: config.models.rewrite,
-    systemPrompt: REWRITE_SYSTEM_PROMPT,
-    userPrompt: buildRewritePrompt({ schoolName, queryText, notes, profile, draftText }),
-    temperature: 0.25
-  });
-  return response.text;
+  try {
+    const response = await callDashScopeChat({
+      model: config.models.rewrite,
+      systemPrompt: REWRITE_SYSTEM_PROMPT,
+      userPrompt: buildRewritePrompt({ schoolName, queryText, notes, profile, draftText }),
+      temperature: 0.25
+    });
+    return response.text;
+  } catch (error) {
+    throw annotateTaskError(error, {
+      step: 'rewrite_essay',
+      publicMessage: '优化英文成稿失败'
+    });
+  }
 });
 
 const factCheckTask = task('fact_check', async ({ taskId, schoolName, profile, essayText, stageLabel = 'essay' }) => {
@@ -198,7 +252,13 @@ const factCheckTask = task('fact_check', async ({ taskId, schoolName, profile, e
       raw_preview: truncate(error.rawText, 1200),
       repaired_preview: truncate(error.repairedText, 1200)
     });
-    throw error;
+    throw annotateTaskError(error, {
+      step: 'fact_check',
+      publicMessage: '事实核查失败',
+      details: {
+        stage: stageLabel
+      }
+    });
   }
   return response.json;
 });
@@ -219,13 +279,24 @@ const repairEssayTask = task('repair_essay', async ({
     stage: stageLabel,
     attempt
   });
-  const response = await callDashScopeChat({
-    model: config.models.rewrite,
-    systemPrompt: REWRITE_SYSTEM_PROMPT,
-    userPrompt: buildRepairPrompt({ schoolName, queryText, notes, profile, essayText, issues }),
-    temperature: 0.15
-  });
-  return response.text;
+  try {
+    const response = await callDashScopeChat({
+      model: config.models.rewrite,
+      systemPrompt: REWRITE_SYSTEM_PROMPT,
+      userPrompt: buildRepairPrompt({ schoolName, queryText, notes, profile, essayText, issues }),
+      temperature: 0.15
+    });
+    return response.text;
+  } catch (error) {
+    throw annotateTaskError(error, {
+      step: 'repair_essay',
+      publicMessage: '文书修复失败',
+      details: {
+        stage: stageLabel,
+        attempt
+      }
+    });
+  }
 });
 
 function normalizeFactCheckResult(result) {
@@ -385,8 +456,6 @@ const workflow = entrypoint({ name: 'loveEssayWorkflow' }, async (input) => {
       await extractFactsTask({
         taskId: input.taskId,
         schoolName: input.schoolName,
-        queryText: input.queryText,
-        notes: input.notes,
         chunk,
         progressLabel
       })
@@ -453,7 +522,17 @@ const workflow = entrypoint({ name: 'loveEssayWorkflow' }, async (input) => {
       fact_check: factCheck,
       constraints
     });
-    throw new Error('文书在修复后仍未通过事实核查或格式约束，请调整材料或提示词后重试');
+    throw annotateTaskError(
+      new Error('文书在修复后仍未通过事实核查或格式约束，请调整材料或提示词后重试'),
+      {
+        step: 'final_validation',
+        publicMessage: '文书最终校验失败',
+        details: {
+          fact_check: factCheck,
+          constraints
+        }
+      }
+    );
   }
 
   const metrics = {

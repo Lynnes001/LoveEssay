@@ -1,5 +1,6 @@
 import { config } from '../config.js';
 import { createTraceable } from '../services/tracing.js';
+import { annotateTaskError } from '../services/taskFailure.js';
 import { safeJsonParse } from './utils.js';
 
 function normalizeContent(content) {
@@ -36,37 +37,57 @@ async function rawDashScopeChat({
     throw new Error('服务端未配置 DASHSCOPE_API_KEY');
   }
 
-  const response = await fetch(`${config.dashScopeBaseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${config.dashScopeApiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model,
-      temperature,
-      top_p: topP,
-      stream: false,
-      enable_thinking: false,
-      extra_body: {
-        enable_thinking: false
+  let response;
+  try {
+    response = await fetch(`${config.dashScopeBaseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.dashScopeApiKey}`,
+        'Content-Type': 'application/json'
       },
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ]
-    })
-  });
+      body: JSON.stringify({
+        model,
+        temperature,
+        top_p: topP,
+        stream: false,
+        enable_thinking: false,
+        extra_body: {
+          enable_thinking: false
+        },
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ]
+      })
+    });
+  } catch (error) {
+    throw annotateTaskError(error, {
+      publicMessage: '模型请求发送失败',
+      details: {
+        model,
+        dashscope_base_url: config.dashScopeBaseUrl
+      }
+    });
+  }
 
   const raw = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(raw?.error?.message || raw?.message || `模型请求失败 (${response.status})`);
+    const error = new Error(raw?.error?.message || raw?.message || `模型请求失败 (${response.status})`);
+    error.name = 'DashScopeApiError';
+    error.status = response.status;
+    error.responseBody = raw;
+    error.model = model;
+    throw error;
   }
 
   const message = raw?.choices?.[0]?.message;
   const text = normalizeContent(message?.content);
   if (!text) {
-    throw new Error('模型返回为空');
+    const error = new Error('模型返回为空');
+    error.name = 'DashScopeEmptyResponseError';
+    error.model = model;
+    error.responseBody = raw;
+    throw error;
   }
 
   return {

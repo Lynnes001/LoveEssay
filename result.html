@@ -362,6 +362,7 @@
         let metricsStatus = '准备中';
         let taskStartedAt = 0;
         let currentTaskStatus = 'idle';
+        let consecutivePollFailures = 0;
 
         if (taskId) {
             sessionStorage.setItem('essay_task_id', taskId);
@@ -370,6 +371,33 @@
         function setStatus(message, tone = 'info') {
             statusBannerEl.textContent = message;
             statusBannerEl.className = `status-banner ${tone}`;
+        }
+
+        function createTaskRefreshError(message, options = {}) {
+            const error = new Error(message || '获取任务状态失败');
+            Object.assign(error, options);
+            return error;
+        }
+
+        function isTaskInFlight(status) {
+            return status === 'queued' || status === 'running';
+        }
+
+        function isTransientTaskRefreshFailure(error) {
+            return error?.transient === true;
+        }
+
+        function getRetryDelay(failureCount) {
+            if (failureCount <= 1) {
+                return 3000;
+            }
+            if (failureCount === 2) {
+                return 5000;
+            }
+            if (failureCount === 3) {
+                return 8000;
+            }
+            return 12000;
         }
 
         function showFatalError(msg) {
@@ -538,6 +566,7 @@
         }
 
         function applyTaskState(task) {
+            consecutivePollFailures = 0;
             currentTaskStatus = task.status;
             if (task.created_at && !taskStartedAt) {
                 taskStartedAt = task.created_at;
@@ -609,15 +638,44 @@
             const response = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
                 cache: 'no-store'
             });
-            const payload = await response.json().catch(() => ({}));
+            const raw = await response.text();
+            let payload = {};
+            let parseFailed = false;
+
+            if (raw && raw.trim()) {
+                try {
+                    payload = JSON.parse(raw);
+                } catch {
+                    parseFailed = true;
+                }
+            } else if (response.ok) {
+                parseFailed = true;
+            }
 
             if (response.status === 401 && payload.redirect) {
                 window.location.href = payload.redirect;
                 return;
             }
 
+            if (response.status === 404) {
+                throw createTaskRefreshError(payload.error || '任务不存在或已过期', {
+                    status: 404,
+                    transient: false
+                });
+            }
+
             if (!response.ok) {
-                throw new Error(payload.error || `请求失败: ${response.status}`);
+                throw createTaskRefreshError(payload.error || `请求失败: ${response.status}`, {
+                    status: response.status,
+                    transient: response.status >= 500 || parseFailed
+                });
+            }
+
+            if (parseFailed) {
+                throw createTaskRefreshError('任务状态响应解析失败，正在自动重试', {
+                    status: response.status,
+                    transient: true
+                });
             }
 
             applyTaskState(payload);
@@ -657,8 +715,22 @@
 
         function handleTaskFailure(error) {
             console.error('任务状态刷新失败:', error);
+
+            if (isTransientTaskRefreshFailure(error)) {
+                consecutivePollFailures += 1;
+                const delay = getRetryDelay(consecutivePollFailures);
+                if (isTaskInFlight(currentTaskStatus) || currentTaskStatus === 'idle') {
+                    startMetrics('同步重试中', taskStartedAt || Date.now());
+                    setStopEnabled(isTaskInFlight(currentTaskStatus));
+                    setStatus(`任务状态同步出现波动，正在自动重试（第 ${consecutivePollFailures} 次）...`, 'warn');
+                    schedulePoll(delay);
+                    return;
+                }
+            }
+
             stopMetrics('失败');
             setStopEnabled(false);
+            consecutivePollFailures = 0;
 
             if (!isPlaceholderText(resultContentEl.textContent)) {
                 showInlineError(error.message || '获取任务状态失败，请重试');

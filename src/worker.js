@@ -2,6 +2,7 @@ import { Worker } from 'bullmq';
 import { pathToFileURL } from 'node:url';
 import { config } from './config.js';
 import { healthcheckDb } from './db/pool.js';
+import { buildTaskFailureDetails } from './services/taskFailure.js';
 import { createRedisConnection } from './services/queue.js';
 import { createTraceable, flushTraces } from './services/tracing.js';
 import {
@@ -84,10 +85,14 @@ export async function startWorker() {
       return;
     }
 
-    await markTaskFailed(job.data.taskId, error.message || '任务执行失败');
-    await appendTaskEvent(job.data.taskId, 'worker', 'error', '任务执行失败', {
-      error: error.message || 'unknown error'
+    const record = await getTaskRecord(job.data.taskId).catch(() => null);
+    const failure = buildTaskFailureDetails(error, {
+      step: record?.current_step || 'worker',
+      current_step: record?.current_step || null,
+      eventMessage: '任务执行失败'
     });
+    await markTaskFailed(job.data.taskId, failure.publicMessage);
+    await appendTaskEvent(job.data.taskId, failure.event.step, failure.event.level, failure.event.message, failure.event.payload);
   });
 
   console.log(`LoveEssay worker listening on queue "${config.queueName}"`);
