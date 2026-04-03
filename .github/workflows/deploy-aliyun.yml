@@ -66,6 +66,14 @@ jobs:
           rm: false
           strip_components: 0
 
+      - name: Verify frontend assets exist in workspace
+        run: |
+          set -euo pipefail
+          test -f index.html
+          test -f login.html
+          test -f result.html
+          test -f assets/app.css
+
       - name: Deploy on server
         uses: appleboy/ssh-action@v1
         env:
@@ -158,7 +166,7 @@ jobs:
 
             ok=0
             for i in $(seq 1 30); do
-              if curl -sS --fail http://127.0.0.1:${HOST_PORT:-6788}/api/health > /dev/null; then
+              if curl -sS --fail http://127.0.0.1:${HOST_PORT:-6788}/api/health > /dev/null 2>&1; then
                 ok=1
                 break
               fi
@@ -169,5 +177,27 @@ jobs:
               echo "健康检查失败，输出服务诊断信息..."
               docker compose ps || true
               docker compose logs --no-color --tail=200 web worker nginx postgres redis || true
+              exit 1
+            fi
+
+            if ! curl -sS --fail http://127.0.0.1:${HOST_PORT:-6788}/login | grep -q 'assets/app.css'; then
+              echo "登录页未正确引用 assets/app.css"
+              docker compose logs --no-color --tail=120 web nginx || true
+              exit 1
+            fi
+
+            css_headers_file="$(mktemp)"
+            css_body_file="$(mktemp)"
+            trap 'rm -f "${css_headers_file}" "${css_body_file}"' EXIT
+
+            if ! curl -sS --fail -D "${css_headers_file}" -o "${css_body_file}" http://127.0.0.1:${HOST_PORT:-6788}/assets/app.css; then
+              echo "CSS 资源请求失败"
+              docker compose logs --no-color --tail=120 web nginx || true
+              exit 1
+            fi
+
+            if ! grep -qi '^content-type: text/css' "${css_headers_file}" || [ ! -s "${css_body_file}" ] || ! grep -q ':root' "${css_body_file}"; then
+              echo "CSS 资源未正确对外提供"
+              docker compose logs --no-color --tail=120 web nginx || true
               exit 1
             fi

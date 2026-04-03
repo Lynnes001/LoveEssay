@@ -10,10 +10,15 @@ import { getTask, createTask, requestTaskCancel, markTaskCanceled } from './serv
 import { normalizeUploadOriginalName, removeUploadedFile, uploadMiddleware } from './services/uploads.js';
 
 const app = express();
+const staticAssetsDir = path.join(config.rootDir, 'assets');
 
 app.set('trust proxy', true);
 app.use(express.json({ limit: '256kb' }));
 app.use(express.urlencoded({ extended: false }));
+app.use('/assets', express.static(staticAssetsDir, {
+  fallthrough: false,
+  maxAge: '7d'
+}));
 
 function validateTaskForm(body, file) {
   const schoolName = String(body.school_name || '').trim();

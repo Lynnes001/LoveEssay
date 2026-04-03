@@ -19,8 +19,9 @@ echo "[2/8] 创建目录..."
 mkdir -p "$APP_DIR" "$ENV_DIR"
 
 echo "[3/8] 复制项目文件..."
-cp -f index.html result.html server.js package.json "$APP_DIR"/
-cp -rf deploy "$APP_DIR"/
+rm -rf "$APP_DIR/assets" "$APP_DIR/deploy" "$APP_DIR/src" "$APP_DIR/sql"
+cp -f index.html login.html result.html server.js package.json "$APP_DIR"/
+cp -rf assets deploy src sql "$APP_DIR"/
 
 if [ -f package-lock.json ]; then
   cp -f package-lock.json "$APP_DIR"/

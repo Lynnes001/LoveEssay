@@ -4,229 +4,89 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登录 - LoveEssay</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            min-height: 100vh;
-            font-family: "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
-            background:
-                radial-gradient(circle at top left, rgba(255, 221, 171, 0.75), transparent 28%),
-                radial-gradient(circle at bottom right, rgba(135, 206, 235, 0.55), transparent 24%),
-                linear-gradient(145deg, #f5efe6 0%, #efe4d7 45%, #e4eef4 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-            color: #2f2a25;
-        }
-
-        .shell {
-            width: min(100%, 980px);
-            display: grid;
-            grid-template-columns: 1.15fr 0.85fr;
-            border-radius: 28px;
-            overflow: hidden;
-            background: rgba(255, 252, 248, 0.82);
-            backdrop-filter: blur(18px);
-            box-shadow: 0 28px 80px rgba(58, 38, 20, 0.18);
-            border: 1px solid rgba(111, 84, 53, 0.14);
-        }
-
-        .story {
-            padding: 52px 44px;
-            background:
-                linear-gradient(180deg, rgba(109, 79, 48, 0.08), rgba(109, 79, 48, 0.02)),
-                repeating-linear-gradient(
-                    135deg,
-                    rgba(125, 91, 54, 0.07),
-                    rgba(125, 91, 54, 0.07) 12px,
-                    rgba(255, 255, 255, 0.02) 12px,
-                    rgba(255, 255, 255, 0.02) 24px
-                );
-        }
-
-        .story h1 {
-            font-size: clamp(34px, 4vw, 52px);
-            line-height: 1.05;
-            letter-spacing: -0.03em;
-            margin-bottom: 18px;
-            color: #3a2415;
-        }
-
-        .story p {
-            max-width: 34rem;
-            line-height: 1.8;
-            color: #5f4d3f;
-            font-size: 15px;
-        }
-
-        .chips {
-            margin-top: 28px;
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .chip {
-            padding: 10px 14px;
-            border-radius: 999px;
-            background: rgba(255, 248, 241, 0.82);
-            border: 1px solid rgba(120, 86, 53, 0.14);
-            font-size: 13px;
-            color: #694a31;
-        }
-
-        .panel {
-            padding: 44px 34px;
-            background: rgba(255, 255, 255, 0.88);
-            border-left: 1px solid rgba(111, 84, 53, 0.1);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        .panel h2 {
-            font-size: 24px;
-            margin-bottom: 8px;
-            color: #2b2119;
-        }
-
-        .panel .sub {
-            color: #7b6958;
-            font-size: 14px;
-            margin-bottom: 26px;
-        }
-
-        .field {
-            margin-bottom: 16px;
-        }
-
-        .field label {
-            display: block;
-            margin-bottom: 8px;
-            color: #564434;
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        .field input {
-            width: 100%;
-            border: 1px solid rgba(114, 85, 58, 0.18);
-            background: #fffdfa;
-            border-radius: 14px;
-            padding: 14px 16px;
-            font-size: 15px;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-
-        .field input:focus {
-            outline: none;
-            border-color: #ad7a47;
-            box-shadow: 0 0 0 4px rgba(173, 122, 71, 0.12);
-        }
-
-        .error {
-            display: none;
-            margin-bottom: 16px;
-            padding: 12px 14px;
-            border-radius: 12px;
-            background: #fff0ec;
-            color: #b94d2f;
-            border: 1px solid rgba(185, 77, 47, 0.2);
-            font-size: 14px;
-        }
-
-        .error.active {
-            display: block;
-        }
-
-        .submit-btn {
-            width: 100%;
-            border: none;
-            border-radius: 14px;
-            padding: 15px 16px;
-            font-size: 15px;
-            font-weight: 700;
-            color: #fff;
-            cursor: pointer;
-            background: linear-gradient(135deg, #8f5d2f 0%, #c48a52 100%);
-            box-shadow: 0 14px 32px rgba(143, 93, 47, 0.25);
-            transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
-        }
-
-        .submit-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 18px 38px rgba(143, 93, 47, 0.28);
-        }
-
-        .submit-btn:disabled {
-            opacity: 0.7;
-            cursor: wait;
-            transform: none;
-        }
-
-        .hint {
-            margin-top: 14px;
-            font-size: 12px;
-            color: #8a7868;
-            line-height: 1.6;
-        }
-
-        @media (max-width: 820px) {
-            .shell {
-                grid-template-columns: 1fr;
-            }
-
-            .story {
-                padding: 38px 28px 22px;
-            }
-
-            .panel {
-                padding: 28px;
-                border-left: none;
-                border-top: 1px solid rgba(111, 84, 53, 0.1);
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="/assets/app.css">
 </head>
-<body>
-    <div class="shell">
-        <section class="story">
-            <h1>LoveEssay</h1>
-            <p>登录后即可使用文书工作流。当前版本保留单账号入口，主要用于解决浏览器原生 Basic Auth 弹窗不可控、输错后难以重新认证的问题。</p>
+<body class="app-page">
+    <div class="page-shell">
+        <section class="page-hero sticky">
+            <p class="brand-kicker">LoveEssay Access</p>
+            <h1>进入同一套顾问工作台，而不是被浏览器弹窗打断的登录流程。</h1>
+            <p>这里保留单账号入口，用来替代难以控制的 Basic Auth 体验。登录后可以连续完成材料上传、异步任务追踪和结果查看，不需要在不同风格的页面之间切换。</p>
+
             <div class="chips">
-                <span class="chip">Word 材料上传</span>
-                <span class="chip">LangGraph 工作流</span>
-                <span class="chip">阿里云模型编排</span>
-                <span class="chip">异步任务结果页</span>
+                <span class="chip">单入口访问</span>
+                <span class="chip">统一界面语言</span>
+                <span class="chip">结果页自动跳转</span>
+                <span class="chip">错误后可直接重试</span>
+            </div>
+
+            <div class="hero-stat-grid">
+                <div class="hero-stat">
+                    <strong>同一会话</strong>
+                    <span>登录后即可连续完成提交、查看状态和复制结果，不需要反复认证。</span>
+                </div>
+                <div class="hero-stat">
+                    <strong>更少打断</strong>
+                    <span>输错密码时直接停留当前页修正，不再被浏览器原生弹窗反复抢焦点。</span>
+                </div>
+            </div>
+
+            <div class="hero-outline">
+                <div class="outline-card">
+                    <strong>适合部署环境</strong>
+                    <span>使用部署时配置的用户名与密码，无需注册、找回密码或额外账户体系。</span>
+                </div>
+                <div class="outline-card">
+                    <strong>适合顾问工作流</strong>
+                    <span>登录后进入固定工作台，后续的材料提交与结果查看都沿用同一视觉和信息结构。</span>
+                </div>
             </div>
         </section>
 
-        <section class="panel">
-            <h2>账号登录</h2>
-            <p class="sub">输入部署环境中配置的用户名和密码。</p>
-
-            <form id="loginForm">
-                <div class="error" id="errorBox"></div>
-
-                <div class="field">
-                    <label for="username">用户名</label>
-                    <input id="username" name="username" type="text" autocomplete="username" required>
+        <section class="page-panel">
+            <div class="panel-body panel-body--centered">
+                <div class="panel-header">
+                    <p class="panel-eyebrow">Secure Sign In</p>
+                    <h2 class="panel-title">账号登录</h2>
+                    <p class="panel-subtitle">输入部署环境中配置的用户名和密码，进入文书工作台。这个页面只解决访问控制，不增加额外注册和账户管理负担。</p>
                 </div>
 
-                <div class="field">
-                    <label for="password">密码</label>
-                    <input id="password" name="password" type="password" autocomplete="current-password" required>
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <strong>访问方式</strong>
+                        <span>单一账号入口，适合内部使用或受控部署。</span>
+                    </div>
+                    <div class="summary-card">
+                        <strong>登录之后</strong>
+                        <span>会直接进入同一套任务工作台，不会切换成另一种界面语气。</span>
+                    </div>
+                    <div class="summary-card">
+                        <strong>错误处理</strong>
+                        <span>密码输错后留在当前页修正，减少操作中断。</span>
+                    </div>
                 </div>
 
-                <button class="submit-btn" id="submitBtn" type="submit">进入工作台</button>
-                <p class="hint">如果刚输错过密码，现在可以直接在这个页面重新输入，不需要和浏览器认证弹窗对抗。</p>
-            </form>
+                <form id="loginForm">
+                    <div class="error" id="errorBox"></div>
+
+                    <div class="form-section">
+                        <div class="field">
+                            <label for="username">用户名</label>
+                            <input id="username" name="username" type="text" autocomplete="username" placeholder="输入部署用户名" required>
+                        </div>
+
+                        <div class="field">
+                            <label for="password">密码</label>
+                            <input id="password" name="password" type="password" autocomplete="current-password" placeholder="输入部署密码" required>
+                        </div>
+                    </div>
+
+                    <div class="form-footer">
+                        <button class="submit-btn" id="submitBtn" type="submit">进入工作台</button>
+                        <p class="hint">如果刚输错过密码，现在可以直接在这个页面重新输入，不需要再和浏览器认证弹窗对抗。</p>
+                    </div>
+                </form>
+            </div>
         </section>
     </div>
 
