@@ -107,7 +107,29 @@ docker compose up --build -d
 
 - 页面：[http://127.0.0.1:6788](http://127.0.0.1:6788)
 - 健康检查：[http://127.0.0.1:6788/api/health](http://127.0.0.1:6788/api/health)
+- PostgreSQL 管理后台：[http://127.0.0.1:6788/pgadmin/](http://127.0.0.1:6788/pgadmin/)
 - 如果宿主机 `6788` 已被占用，可在 `.env` 中改 `HOST_PORT`，并同步调整 `PUBLIC_BASE_URL`
+
+### PostgreSQL 管理后台
+
+- 访问路径：`/pgadmin/`
+- 推荐通过同一台 ECS 上的 `nginx` 反代访问，避免直接暴露 PostgreSQL `5432` 到公网
+- 生产环境务必修改 `POSTGRES_PASSWORD` 和 `PGADMIN_DEFAULT_PASSWORD`
+- 建议在阿里云安全组里只允许你的固定公网 IP 访问管理入口
+
+首次登录 `pgAdmin` 使用：
+
+- `PGADMIN_DEFAULT_EMAIL`
+- `PGADMIN_DEFAULT_PASSWORD`
+
+容器会预置一个名为 `loveessay-postgres` 的连接，默认指向：
+
+- Host：`postgres`
+- Port：`5432`
+- Maintenance DB：`loveessay`
+- Username：`loveessay`
+
+如果你改了 `POSTGRES_DB` 或 `POSTGRES_USER`，请在 `pgAdmin` 里手动更新这个连接，或新建一个连接并填入新的值。数据库密码不会预置在 `pgAdmin` 中，首次连接时手动输入即可。
 
 ## API
 
@@ -160,6 +182,9 @@ curl -X POST http://127.0.0.1:6788/api/tasks \
 - `UPLOAD_DIR`
 - `MAX_UPLOAD_SIZE_MB`
 - `RATE_LIMIT_PER_MINUTE`
+- `POSTGRES_DB`：Compose 中 Postgres 初始化库名，默认 `loveessay`
+- `POSTGRES_USER`：Compose 中 Postgres 初始化用户名，默认 `loveessay`
+- `POSTGRES_PASSWORD`：Compose 中 Postgres 初始化密码
 - `ACR_USERNAME`：可选，部署时用于自动登录 ACR
 - `ACR_PASSWORD`：可选，部署时用于自动登录 ACR
 - `DOCKER_PLATFORM`：可选，本地通常留空；云端部署可设为 `linux/amd64`
@@ -167,6 +192,9 @@ curl -X POST http://127.0.0.1:6788/api/tasks \
 - `POSTGRES_IMAGE`：Postgres 基础镜像，默认 `postgres:16`
 - `REDIS_IMAGE`：Redis 基础镜像，默认 `redis:7`
 - `NGINX_IMAGE`：Nginx 基础镜像，默认 `nginx:1.27-alpine`
+- `PGADMIN_IMAGE`：pgAdmin 镜像，默认 `dpage/pgadmin4:8.14`
+- `PGADMIN_DEFAULT_EMAIL`：pgAdmin 初始管理员邮箱
+- `PGADMIN_DEFAULT_PASSWORD`：pgAdmin 初始管理员密码
 
 ## 注意事项
 

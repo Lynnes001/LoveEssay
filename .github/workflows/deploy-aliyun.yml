@@ -93,6 +93,11 @@ jobs:
           REWRITE_MODEL: ${{ vars.REWRITE_MODEL }}
           CHECK_MODEL: ${{ vars.CHECK_MODEL }}
           HOST_PORT: ${{ vars.HOST_PORT }}
+          POSTGRES_DB: ${{ vars.POSTGRES_DB }}
+          POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          PGADMIN_DEFAULT_EMAIL: ${{ vars.PGADMIN_DEFAULT_EMAIL }}
+          PGADMIN_DEFAULT_PASSWORD: ${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
           ACR_USERNAME: ${{ vars.ACR_USERNAME }}
           ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
           DOCKER_PLATFORM: ${{ vars.DOCKER_PLATFORM }}
@@ -106,7 +111,7 @@ jobs:
           key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.ALIYUN_SSH_PASSPHRASE }}
           port: 22
-          envs: DASHSCOPE_API_KEY,APP_LOGIN_USER,APP_LOGIN_PASS,AUTH_SESSION_SECRET,AUTH_SESSION_TTL_SECONDS,AUTH_SECURE_COOKIE,LANGSMITH_TRACING,LANGSMITH_API_KEY,LANGSMITH_PROJECT,LANGSMITH_ENDPOINT,LANGSMITH_WORKSPACE_ID,EXTRACT_MODEL,DRAFT_MODEL,REWRITE_MODEL,CHECK_MODEL,HOST_PORT,ACR_USERNAME,ACR_PASSWORD,DOCKER_PLATFORM,NODE_BASE_IMAGE,POSTGRES_IMAGE,REDIS_IMAGE,NGINX_IMAGE
+          envs: DASHSCOPE_API_KEY,APP_LOGIN_USER,APP_LOGIN_PASS,AUTH_SESSION_SECRET,AUTH_SESSION_TTL_SECONDS,AUTH_SECURE_COOKIE,LANGSMITH_TRACING,LANGSMITH_API_KEY,LANGSMITH_PROJECT,LANGSMITH_ENDPOINT,LANGSMITH_WORKSPACE_ID,EXTRACT_MODEL,DRAFT_MODEL,REWRITE_MODEL,CHECK_MODEL,HOST_PORT,POSTGRES_DB,POSTGRES_USER,POSTGRES_PASSWORD,PGADMIN_DEFAULT_EMAIL,PGADMIN_DEFAULT_PASSWORD,ACR_USERNAME,ACR_PASSWORD,DOCKER_PLATFORM,NODE_BASE_IMAGE,POSTGRES_IMAGE,REDIS_IMAGE,NGINX_IMAGE
           script: |
             set -euo pipefail
             if [ -z "${DASHSCOPE_API_KEY:-}" ]; then
@@ -117,6 +122,10 @@ jobs:
               echo "缺少应用登录配置: APP_LOGIN_USER / APP_LOGIN_PASS"
               exit 1
             fi
+            if [ -z "${PGADMIN_DEFAULT_PASSWORD:-}" ]; then
+              echo "缺少 pgAdmin 登录密码配置: PGADMIN_DEFAULT_PASSWORD"
+              exit 1
+            fi
 
             cd /root/LoveEssay
 
@@ -125,6 +134,14 @@ jobs:
             fi
 
             mkdir -p uploads pgdata redis-data
+
+            if [ -d pgdata/base ]; then
+              if [ "${POSTGRES_DB:-loveessay}" != "loveessay" ] || [ "${POSTGRES_USER:-loveessay}" != "loveessay" ] || [ "${POSTGRES_PASSWORD:-loveessay}" != "loveessay" ]; then
+                echo "检测到现有 pgdata。GitHub Actions 当前不会自动迁移 PostgreSQL 用户、密码或库名。"
+                echo "如需修改 POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD，请先手动迁移数据库，再更新部署配置。"
+                exit 1
+              fi
+            fi
 
             cat > .env <<EOT
             DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
@@ -151,9 +168,14 @@ jobs:
             TASK_TIMEOUT_MS=900000
             TASK_TTL_MS=172800000
             UPLOAD_DIR=/app/uploads
-            DATABASE_URL=postgresql://loveessay:loveessay@postgres:5432/loveessay
+            POSTGRES_DB=${POSTGRES_DB:-loveessay}
+            POSTGRES_USER=${POSTGRES_USER:-loveessay}
+            POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-loveessay}
+            DATABASE_URL=postgresql://${POSTGRES_USER:-loveessay}:${POSTGRES_PASSWORD:-loveessay}@postgres:5432/${POSTGRES_DB:-loveessay}
             REDIS_URL=redis://redis:6379
             QUEUE_NAME=loveessay-tasks
+            PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
+            PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
             DOCKER_PLATFORM=${DOCKER_PLATFORM:-linux/amd64}
             NODE_BASE_IMAGE=${NODE_BASE_IMAGE:-node:20-bookworm-slim}
             POSTGRES_IMAGE=${POSTGRES_IMAGE:-postgres:16}
@@ -176,13 +198,13 @@ jobs:
             if [ "$ok" -ne 1 ]; then
               echo "健康检查失败，输出服务诊断信息..."
               docker compose ps || true
-              docker compose logs --no-color --tail=200 web worker nginx postgres redis || true
+              docker compose logs --no-color --tail=200 web worker nginx postgres redis pgadmin || true
               exit 1
             fi
 
             if ! curl -sS --fail http://127.0.0.1:${HOST_PORT:-6788}/login | grep -q 'assets/app.css'; then
               echo "登录页未正确引用 assets/app.css"
-              docker compose logs --no-color --tail=120 web nginx || true
+              docker compose logs --no-color --tail=120 web nginx pgadmin || true
               exit 1
             fi
 
@@ -192,12 +214,12 @@ jobs:
 
             if ! curl -sS --fail -D "${css_headers_file}" -o "${css_body_file}" http://127.0.0.1:${HOST_PORT:-6788}/assets/app.css; then
               echo "CSS 资源请求失败"
-              docker compose logs --no-color --tail=120 web nginx || true
+              docker compose logs --no-color --tail=120 web nginx pgadmin || true
               exit 1
             fi
 
             if ! grep -qi '^content-type: text/css' "${css_headers_file}" || [ ! -s "${css_body_file}" ] || ! grep -q ':root' "${css_body_file}"; then
               echo "CSS 资源未正确对外提供"
-              docker compose logs --no-color --tail=120 web nginx || true
+              docker compose logs --no-color --tail=120 web nginx pgadmin || true
               exit 1
             fi
