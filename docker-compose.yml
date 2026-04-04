@@ -108,7 +108,7 @@ services:
       - web
 
   pgadmin:
-    image: ${PGADMIN_IMAGE:-dpage/pgadmin4:8.14}
+    image: ${PGADMIN_IMAGE:-crpi-n8xq04c9r8533fv2.cn-chengdu.personal.cr.aliyuncs.com/sid729/pgadmin:latest}
     platform: ${DOCKER_PLATFORM:-}
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}

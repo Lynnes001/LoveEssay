@@ -192,7 +192,7 @@ curl -X POST http://127.0.0.1:6788/api/tasks \
 - `POSTGRES_IMAGE`：Postgres 基础镜像，默认 `postgres:16`
 - `REDIS_IMAGE`：Redis 基础镜像，默认 `redis:7`
 - `NGINX_IMAGE`：Nginx 基础镜像，默认 `nginx:1.27-alpine`
-- `PGADMIN_IMAGE`：pgAdmin 镜像，默认 `dpage/pgadmin4:8.14`
+- `PGADMIN_IMAGE`：pgAdmin 镜像，默认 `crpi-n8xq04c9r8533fv2.cn-chengdu.personal.cr.aliyuncs.com/sid729/pgadmin:latest`
 - `PGADMIN_DEFAULT_EMAIL`：pgAdmin 初始管理员邮箱
 - `PGADMIN_DEFAULT_PASSWORD`：pgAdmin 初始管理员密码
 
@@ -204,6 +204,6 @@ curl -X POST http://127.0.0.1:6788/api/tasks \
 - 生产部署默认通过固定 `/login` 页面保护页面和任务 API，替代浏览器原生 Basic Auth 弹窗
 - 兼容旧配置：如果环境里仍使用 `BASIC_AUTH_USER / BASIC_AUTH_PASS`，应用仍可读取，但新部署建议改用 `APP_LOGIN_USER / APP_LOGIN_PASS`
 - GitHub Actions 部署前，ECS 必须预装 `docker` 和 `docker compose`
-- 如果 ECS 无法稳定访问 Docker Hub，优先把 `NODE_BASE_IMAGE / POSTGRES_IMAGE / REDIS_IMAGE / NGINX_IMAGE` 指到你自己的 ACR 镜像
+- 当前默认 `PGADMIN_IMAGE` 已指向阿里云 ACR；如果 ECS 无法稳定访问 Docker Hub，继续把 `NODE_BASE_IMAGE / POSTGRES_IMAGE / REDIS_IMAGE / NGINX_IMAGE` 也指到你自己的 ACR 镜像
 - 如果 `docker compose up` 提示 `failed to bind host port ... 6788 ... address already in use`，通常是宿主机上旧版 `nginx` 或其他进程占用了 `6788`。处理方式是停掉旧服务，或改用新的 `HOST_PORT`
 - 旧的 `deploy.sh` / `scripts/deploy_server.sh` 是上一版 systemd 部署方式，不再代表当前推荐路径
