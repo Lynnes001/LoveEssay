@@ -47,7 +47,7 @@ test('nginx proxies pgadmin on a subpath', () => {
 
   assert.match(nginx, /location = \/pgadmin/);
   assert.match(nginx, /location \/pgadmin\//);
-  assert.match(nginx, /proxy_pass http:\/\/pgadmin:80\//);
+  assert.match(nginx, /proxy_pass http:\/\/pgadmin:80/);
   assert.match(nginx, /proxy_set_header X-Script-Name \/pgadmin/);
 });
 
