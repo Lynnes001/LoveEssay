@@ -175,7 +175,7 @@ jobs:
             DATABASE_URL=postgresql://${POSTGRES_USER:-loveessay}:${POSTGRES_PASSWORD:-loveessay}@postgres:5432/${POSTGRES_DB:-loveessay}
             REDIS_URL=redis://redis:6379
             QUEUE_NAME=loveessay-tasks
-            PGADMIN_IMAGE=${PGADMIN_IMAGE:-crpi-n8xq04c9r8533fv2.cn-chengdu.personal.cr.aliyuncs.com/sid729/pgadmin:latest}
+            PGADMIN_IMAGE=${PGADMIN_IMAGE:-crpi-n8xq04c9r8533fv2.cn-chengdu.personal.cr.aliyuncs.com/sid729/pgadmin:8.14-amd64}
             PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
             PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
             DOCKER_PLATFORM=${DOCKER_PLATFORM:-linux/amd64}

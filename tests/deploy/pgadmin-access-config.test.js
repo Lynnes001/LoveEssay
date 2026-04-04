@@ -36,7 +36,7 @@ test('docker compose adds pgadmin while keeping postgres private', () => {
   const pgadminBlock = getComposeServiceBlock(compose, 'pgadmin');
 
   assert.doesNotMatch(postgresBlock, /^\s+ports:\s*$/m);
-  assert.match(pgadminBlock, /image: \$\{PGADMIN_IMAGE:-crpi-n8xq04c9r8533fv2\.cn-chengdu\.personal\.cr\.aliyuncs\.com\/sid729\/pgadmin:latest\}/);
+  assert.match(pgadminBlock, /image: \$\{PGADMIN_IMAGE:-crpi-n8xq04c9r8533fv2\.cn-chengdu\.personal\.cr\.aliyuncs\.com\/sid729\/pgadmin:8\.14-amd64\}/);
   assert.match(pgadminBlock, /SCRIPT_NAME: \/pgadmin/);
   assert.match(pgadminBlock, /PGADMIN_DEFAULT_EMAIL: \$\{PGADMIN_DEFAULT_EMAIL:-/);
   assert.match(pgadminBlock, /depends_on:\s*\n\s+postgres:/);
@@ -54,7 +54,7 @@ test('nginx proxies pgadmin on a subpath', () => {
 test('example environment documents pgadmin and configurable postgres credentials', () => {
   const envExample = read('.env.example');
 
-  assert.match(envExample, /^PGADMIN_IMAGE=crpi-n8xq04c9r8533fv2\.cn-chengdu\.personal\.cr\.aliyuncs\.com\/sid729\/pgadmin:latest$/m);
+  assert.match(envExample, /^PGADMIN_IMAGE=crpi-n8xq04c9r8533fv2\.cn-chengdu\.personal\.cr\.aliyuncs\.com\/sid729\/pgadmin:8\.14-amd64$/m);
   assert.match(envExample, /^PGADMIN_DEFAULT_EMAIL=/m);
   assert.match(envExample, /^PGADMIN_DEFAULT_PASSWORD=/m);
   assert.match(envExample, /^POSTGRES_DB=/m);
@@ -84,7 +84,7 @@ test('github actions deployment provisions postgres and pgadmin environment vari
   assert.match(workflow, /POSTGRES_DB=\$\{POSTGRES_DB:-loveessay\}/);
   assert.match(workflow, /POSTGRES_USER=\$\{POSTGRES_USER:-loveessay\}/);
   assert.match(workflow, /POSTGRES_PASSWORD=\$\{POSTGRES_PASSWORD:-loveessay\}/);
-  assert.match(workflow, /PGADMIN_IMAGE=\$\{PGADMIN_IMAGE:-crpi-n8xq04c9r8533fv2\.cn-chengdu\.personal\.cr\.aliyuncs\.com\/sid729\/pgadmin:latest\}/);
+  assert.match(workflow, /PGADMIN_IMAGE=\$\{PGADMIN_IMAGE:-crpi-n8xq04c9r8533fv2\.cn-chengdu\.personal\.cr\.aliyuncs\.com\/sid729\/pgadmin:8\.14-amd64\}/);
   assert.match(workflow, /PGADMIN_DEFAULT_EMAIL=\$\{PGADMIN_DEFAULT_EMAIL:-admin@example.com\}/);
   assert.match(workflow, /缺少 pgAdmin 登录密码配置: PGADMIN_DEFAULT_PASSWORD/);
   assert.doesNotMatch(workflow, /PGADMIN_DEFAULT_PASSWORD=\$\{PGADMIN_DEFAULT_PASSWORD:-change-pgadmin-password\}/);

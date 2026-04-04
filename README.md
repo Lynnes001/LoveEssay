@@ -192,7 +192,7 @@ curl -X POST http://127.0.0.1:6788/api/tasks \
 - `POSTGRES_IMAGE`：Postgres 基础镜像，默认 `postgres:16`
 - `REDIS_IMAGE`：Redis 基础镜像，默认 `redis:7`
 - `NGINX_IMAGE`：Nginx 基础镜像，默认 `nginx:1.27-alpine`
-- `PGADMIN_IMAGE`：pgAdmin 镜像，默认 `crpi-n8xq04c9r8533fv2.cn-chengdu.personal.cr.aliyuncs.com/sid729/pgadmin:latest`
+- `PGADMIN_IMAGE`：pgAdmin 镜像，默认 `crpi-n8xq04c9r8533fv2.cn-chengdu.personal.cr.aliyuncs.com/sid729/pgadmin:8.14-amd64`
 - `PGADMIN_DEFAULT_EMAIL`：pgAdmin 初始管理员邮箱
 - `PGADMIN_DEFAULT_PASSWORD`：pgAdmin 初始管理员密码
 
