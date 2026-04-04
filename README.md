@@ -195,6 +195,7 @@ curl -X POST http://127.0.0.1:6788/api/tasks \
 - `PGADMIN_IMAGE`：pgAdmin 镜像，默认 `crpi-n8xq04c9r8533fv2.cn-chengdu.personal.cr.aliyuncs.com/sid729/pgadmin:8.14-amd64`
 - `PGADMIN_DEFAULT_EMAIL`：pgAdmin 初始管理员邮箱
 - `PGADMIN_DEFAULT_PASSWORD`：pgAdmin 初始管理员密码
+- `PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION`：当前部署默认关闭。pgAdmin 官方文档说明该选项在反向代理、负载均衡或动态 IP 环境下可能导致登录或 CSRF 异常
 
 ## 注意事项
 
