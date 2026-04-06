@@ -1,4 +1,4 @@
-name: Deploy To Aliyun ECS
+name: Deploy to Aliyun ECS
 
 on:
   push:
@@ -15,213 +15,133 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+    env:
+      SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST || secrets.ALIYUN_HOST }}
+      SSH_USER: ${{ vars.DEPLOY_SSH_USER || vars.ALIYUN_USER }}
+      SSH_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY || secrets.ALIYUN_SSH_PRIVATE_KEY }}
+      SSH_PASSPHRASE: ${{ secrets.DEPLOY_SSH_PASSPHRASE || secrets.ALIYUN_SSH_PASSPHRASE }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      DEPLOY_HOST_PORT: ${{ vars.DEPLOY_HOST_PORT || vars.HOST_PORT }}
+      DEPLOY_DOMAIN: ${{ vars.DEPLOY_DOMAIN || vars.APP_DOMAIN }}
+      POSTGRES_DB: ${{ vars.POSTGRES_DB || 'loveessay' }}
+      POSTGRES_USER: ${{ vars.POSTGRES_USER || 'loveessay' }}
+      POSTGRES_HOST: ${{ vars.POSTGRES_HOST || 'postgres' }}
+      REDIS_HOST: ${{ vars.REDIS_HOST || 'redis' }}
+      BACKEND_SERVICE: ${{ vars.BACKEND_SERVICE || 'web' }}
+      WORKER_SERVICE: ${{ vars.WORKER_SERVICE || 'worker' }}
+      DB_SERVICE: ${{ vars.DB_SERVICE || 'postgres' }}
+      REDIS_SERVICE: ${{ vars.REDIS_SERVICE || 'redis' }}
+      NGINX_SERVICE: ${{ vars.NGINX_SERVICE || 'nginx' }}
+      DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/tmp/loveessay-deploy' }}
 
-      - name: Validate SSH secrets
-        env:
-          SSH_HOST: ${{ secrets.ALIYUN_HOST }}
-          SSH_USER: ${{ vars.ALIYUN_USER }}
-          SSH_KEY: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate required deployment configuration
+        shell: bash
         run: |
           set -euo pipefail
 
-          if [ -z "${SSH_HOST:-}" ] || [ -z "${SSH_USER:-}" ] || [ -z "${SSH_KEY:-}" ]; then
-            echo "缺少 SSH 相关配置: ALIYUN_HOST / ALIYUN_USER / ALIYUN_SSH_PRIVATE_KEY"
+          missing=()
+          required_vars=(
+            SSH_HOST
+            SSH_USER
+            SSH_KEY
+            OPENAI_API_KEY
+            DASHSCOPE_API_KEY
+            POSTGRES_PASSWORD
+            DEPLOY_HOST_PORT
+          )
+
+          for name in "${required_vars[@]}"; do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+
+          if [ "${#missing[@]}" -ne 0 ]; then
+            printf 'Missing required deployment configuration: %s\n' "${missing[*]}" >&2
+            printf '%s\n' \
+              'Set these GitHub secrets or vars before deploying:' \
+              '  SSH host/user/key: DEPLOY_SSH_HOST or ALIYUN_HOST, DEPLOY_SSH_USER or ALIYUN_USER, DEPLOY_SSH_PRIVATE_KEY or ALIYUN_SSH_PRIVATE_KEY' \
+              '  Model provider keys: OPENAI_API_KEY, DASHSCOPE_API_KEY' \
+              '  Database password: POSTGRES_PASSWORD' \
+              '  Exposed host port: DEPLOY_HOST_PORT or HOST_PORT' \
+              'Optional values:' \
+              '  DEPLOY_DOMAIN or APP_DOMAIN, POSTGRES_DB, POSTGRES_USER, POSTGRES_HOST, REDIS_HOST, BACKEND_SERVICE, WORKER_SERVICE, DB_SERVICE, REDIS_SERVICE, NGINX_SERVICE, DEPLOY_DIR' >&2
             exit 1
           fi
 
-      - name: Preflight SSH check
-        uses: appleboy/ssh-action@v1
+          case "${DEPLOY_HOST_PORT}" in
+            ''|*[!0-9]*)
+              echo "DEPLOY_HOST_PORT must be a numeric TCP port." >&2
+              exit 1
+              ;;
+          esac
+
+          if [ ! -f docker-compose.yml ] && [ ! -f docker-compose.yaml ] && [ ! -f compose.yml ] && [ ! -f compose.yaml ]; then
+            echo "Missing Docker Compose file in repository root. Expected docker-compose.yml (or compose.yml)." >&2
+            exit 1
+          fi
+
+      - name: Prepare deployment directory on ECS
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DEPLOY_DIR: ${{ env.DEPLOY_DIR }}
         with:
-          host: ${{ secrets.ALIYUN_HOST }}
-          username: ${{ vars.ALIYUN_USER }}
-          key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
-          passphrase: ${{ secrets.ALIYUN_SSH_PASSPHRASE }}
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USER }}
+          key: ${{ env.SSH_KEY }}
+          passphrase: ${{ env.SSH_PASSPHRASE }}
           port: 22
+          envs: DEPLOY_DIR
           script: |
             set -euo pipefail
-            echo github-actions-ssh-ok
-            if ! command -v docker >/dev/null 2>&1; then
-              echo "服务器未安装 docker。请先在 ECS 上安装 Docker Engine。"
-              exit 1
-            fi
-            if ! docker compose version >/dev/null 2>&1; then
-              echo "服务器未安装 docker compose。请先安装 Docker Compose Plugin。"
-              exit 1
-            fi
+            mkdir -p "${DEPLOY_DIR}"
 
-      - name: Upload project files to server
-        uses: appleboy/scp-action@v1
+      - name: Upload repository to ECS
+        uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.ALIYUN_HOST }}
-          username: ${{ vars.ALIYUN_USER }}
-          key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
-          passphrase: ${{ secrets.ALIYUN_SSH_PASSPHRASE }}
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USER }}
+          key: ${{ env.SSH_KEY }}
+          passphrase: ${{ env.SSH_PASSPHRASE }}
           port: 22
           source: "."
-          target: "/root/LoveEssay"
+          target: ${{ env.DEPLOY_DIR }}
           overwrite: true
-          rm: false
+          rm: true
           strip_components: 0
 
-      - name: Verify frontend assets exist in workspace
-        run: |
-          set -euo pipefail
-          test -f index.html
-          test -f login.html
-          test -f result.html
-          test -f assets/app.css
-
-      - name: Deploy on server
-        uses: appleboy/ssh-action@v1
+      - name: Run deployment script on ECS
+        uses: appleboy/ssh-action@v1.0.3
         env:
-          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
-          APP_LOGIN_USER: ${{ vars.APP_LOGIN_USER || vars.BASIC_AUTH_USER }}
-          APP_LOGIN_PASS: ${{ secrets.APP_LOGIN_PASS || secrets.BASIC_AUTH_PASS }}
-          AUTH_SESSION_SECRET: ${{ secrets.AUTH_SESSION_SECRET }}
-          AUTH_SESSION_TTL_SECONDS: ${{ vars.AUTH_SESSION_TTL_SECONDS }}
-          AUTH_SECURE_COOKIE: ${{ vars.AUTH_SECURE_COOKIE }}
-          LANGSMITH_TRACING: ${{ vars.LANGSMITH_TRACING }}
-          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-          LANGSMITH_PROJECT: ${{ vars.LANGSMITH_PROJECT }}
-          LANGSMITH_ENDPOINT: ${{ vars.LANGSMITH_ENDPOINT }}
-          LANGSMITH_WORKSPACE_ID: ${{ vars.LANGSMITH_WORKSPACE_ID }}
-          EXTRACT_MODEL: ${{ vars.EXTRACT_MODEL }}
-          DRAFT_MODEL: ${{ vars.DRAFT_MODEL }}
-          REWRITE_MODEL: ${{ vars.REWRITE_MODEL }}
-          CHECK_MODEL: ${{ vars.CHECK_MODEL }}
-          HOST_PORT: ${{ vars.HOST_PORT }}
-          POSTGRES_DB: ${{ vars.POSTGRES_DB }}
-          POSTGRES_USER: ${{ vars.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          PGADMIN_IMAGE: ${{ vars.PGADMIN_IMAGE }}
-          PGADMIN_DEFAULT_EMAIL: ${{ vars.PGADMIN_DEFAULT_EMAIL }}
-          PGADMIN_DEFAULT_PASSWORD: ${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
-          ACR_USERNAME: ${{ vars.ACR_USERNAME }}
-          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
-          DOCKER_PLATFORM: ${{ vars.DOCKER_PLATFORM }}
-          NODE_BASE_IMAGE: ${{ vars.NODE_BASE_IMAGE }}
-          POSTGRES_IMAGE: ${{ vars.POSTGRES_IMAGE }}
-          REDIS_IMAGE: ${{ vars.REDIS_IMAGE }}
-          NGINX_IMAGE: ${{ vars.NGINX_IMAGE }}
+          OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
+          DASHSCOPE_API_KEY: ${{ env.DASHSCOPE_API_KEY }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          DEPLOY_HOST_PORT: ${{ env.DEPLOY_HOST_PORT }}
+          DEPLOY_DOMAIN: ${{ env.DEPLOY_DOMAIN }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_HOST: ${{ env.POSTGRES_HOST }}
+          REDIS_HOST: ${{ env.REDIS_HOST }}
+          BACKEND_SERVICE: ${{ env.BACKEND_SERVICE }}
+          WORKER_SERVICE: ${{ env.WORKER_SERVICE }}
+          DB_SERVICE: ${{ env.DB_SERVICE }}
+          REDIS_SERVICE: ${{ env.REDIS_SERVICE }}
+          NGINX_SERVICE: ${{ env.NGINX_SERVICE }}
+          DEPLOY_DIR: ${{ env.DEPLOY_DIR }}
         with:
-          host: ${{ secrets.ALIYUN_HOST }}
-          username: ${{ vars.ALIYUN_USER }}
-          key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
-          passphrase: ${{ secrets.ALIYUN_SSH_PASSPHRASE }}
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USER }}
+          key: ${{ env.SSH_KEY }}
+          passphrase: ${{ env.SSH_PASSPHRASE }}
           port: 22
-          envs: DASHSCOPE_API_KEY,APP_LOGIN_USER,APP_LOGIN_PASS,AUTH_SESSION_SECRET,AUTH_SESSION_TTL_SECONDS,AUTH_SECURE_COOKIE,LANGSMITH_TRACING,LANGSMITH_API_KEY,LANGSMITH_PROJECT,LANGSMITH_ENDPOINT,LANGSMITH_WORKSPACE_ID,EXTRACT_MODEL,DRAFT_MODEL,REWRITE_MODEL,CHECK_MODEL,HOST_PORT,POSTGRES_DB,POSTGRES_USER,POSTGRES_PASSWORD,PGADMIN_IMAGE,PGADMIN_DEFAULT_EMAIL,PGADMIN_DEFAULT_PASSWORD,ACR_USERNAME,ACR_PASSWORD,DOCKER_PLATFORM,NODE_BASE_IMAGE,POSTGRES_IMAGE,REDIS_IMAGE,NGINX_IMAGE
+          envs: OPENAI_API_KEY,DASHSCOPE_API_KEY,POSTGRES_PASSWORD,DEPLOY_HOST_PORT,DEPLOY_DOMAIN,POSTGRES_DB,POSTGRES_USER,POSTGRES_HOST,REDIS_HOST,BACKEND_SERVICE,WORKER_SERVICE,DB_SERVICE,REDIS_SERVICE,NGINX_SERVICE,DEPLOY_DIR
           script: |
             set -euo pipefail
-            if [ -z "${DASHSCOPE_API_KEY:-}" ]; then
-              echo "缺少必填 GitHub Secret: DASHSCOPE_API_KEY"
-              exit 1
-            fi
-            if [ -z "${APP_LOGIN_USER:-}" ] || [ -z "${APP_LOGIN_PASS:-}" ]; then
-              echo "缺少应用登录配置: APP_LOGIN_USER / APP_LOGIN_PASS"
-              exit 1
-            fi
-            if [ -z "${PGADMIN_DEFAULT_PASSWORD:-}" ]; then
-              echo "缺少 pgAdmin 登录密码配置: PGADMIN_DEFAULT_PASSWORD"
-              exit 1
-            fi
-
-            cd /root/LoveEssay
-
-            if [ -n "${ACR_USERNAME:-}" ] && [ -n "${ACR_PASSWORD:-}" ]; then
-              echo "${ACR_PASSWORD}" | docker login --username "${ACR_USERNAME}" --password-stdin crpi-n8xq04c9r8533fv2.cn-chengdu.personal.cr.aliyuncs.com
-            fi
-
-            mkdir -p uploads pgdata redis-data
-
-            if [ -d pgdata/base ]; then
-              if [ "${POSTGRES_DB:-loveessay}" != "loveessay" ] || [ "${POSTGRES_USER:-loveessay}" != "loveessay" ] || [ "${POSTGRES_PASSWORD:-loveessay}" != "loveessay" ]; then
-                echo "检测到现有 pgdata。GitHub Actions 当前不会自动迁移 PostgreSQL 用户、密码或库名。"
-                echo "如需修改 POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD，请先手动迁移数据库，再更新部署配置。"
-                exit 1
-              fi
-            fi
-
-            cat > .env <<EOT
-            DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
-            APP_LOGIN_USER=${APP_LOGIN_USER}
-            APP_LOGIN_PASS=${APP_LOGIN_PASS}
-            AUTH_SESSION_SECRET=${AUTH_SESSION_SECRET:-${APP_LOGIN_PASS}}
-            AUTH_SESSION_TTL_SECONDS=${AUTH_SESSION_TTL_SECONDS:-604800}
-            AUTH_SECURE_COOKIE=${AUTH_SECURE_COOKIE:-false}
-            LANGSMITH_TRACING=${LANGSMITH_TRACING:-false}
-            LANGSMITH_API_KEY=${LANGSMITH_API_KEY:-}
-            LANGSMITH_PROJECT=${LANGSMITH_PROJECT:-loveessay}
-            LANGSMITH_ENDPOINT=${LANGSMITH_ENDPOINT:-}
-            LANGSMITH_WORKSPACE_ID=${LANGSMITH_WORKSPACE_ID:-}
-            PORT=6789
-            HOST_PORT=${HOST_PORT:-6788}
-            PUBLIC_BASE_URL=http://127.0.0.1:${HOST_PORT:-6788}
-            DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-            EXTRACT_MODEL=${EXTRACT_MODEL:-qwen3.5-plus}
-            DRAFT_MODEL=${DRAFT_MODEL:-qwen3.5-plus}
-            REWRITE_MODEL=${REWRITE_MODEL:-qwen3-14b-81bba393c391}
-            CHECK_MODEL=${CHECK_MODEL:-qwen3.5-plus}
-            MAX_UPLOAD_SIZE_MB=15
-            RATE_LIMIT_PER_MINUTE=30
-            TASK_TIMEOUT_MS=900000
-            TASK_TTL_MS=172800000
-            UPLOAD_DIR=/app/uploads
-            POSTGRES_DB=${POSTGRES_DB:-loveessay}
-            POSTGRES_USER=${POSTGRES_USER:-loveessay}
-            POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-loveessay}
-            DATABASE_URL=postgresql://${POSTGRES_USER:-loveessay}:${POSTGRES_PASSWORD:-loveessay}@postgres:5432/${POSTGRES_DB:-loveessay}
-            REDIS_URL=redis://redis:6379
-            QUEUE_NAME=loveessay-tasks
-            PGADMIN_IMAGE=${PGADMIN_IMAGE:-crpi-n8xq04c9r8533fv2.cn-chengdu.personal.cr.aliyuncs.com/sid729/pgadmin:8.14-amd64}
-            PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
-            PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
-            DOCKER_PLATFORM=${DOCKER_PLATFORM:-linux/amd64}
-            NODE_BASE_IMAGE=${NODE_BASE_IMAGE:-node:20-bookworm-slim}
-            POSTGRES_IMAGE=${POSTGRES_IMAGE:-postgres:16}
-            REDIS_IMAGE=${REDIS_IMAGE:-redis:7}
-            NGINX_IMAGE=${NGINX_IMAGE:-nginx:1.27-alpine}
-            EOT
-
-            docker compose down --remove-orphans
-            docker compose up --build -d
-
-            ok=0
-            for i in $(seq 1 30); do
-              if curl -sS --fail http://127.0.0.1:${HOST_PORT:-6788}/api/health > /dev/null 2>&1; then
-                ok=1
-                break
-              fi
-              sleep 3
-            done
-
-            if [ "$ok" -ne 1 ]; then
-              echo "健康检查失败，输出服务诊断信息..."
-              docker compose ps || true
-              docker compose logs --no-color --tail=200 web worker nginx postgres redis pgadmin || true
-              exit 1
-            fi
-
-            if ! curl -sS --fail http://127.0.0.1:${HOST_PORT:-6788}/login | grep -q 'assets/app.css'; then
-              echo "登录页未正确引用 assets/app.css"
-              docker compose logs --no-color --tail=120 web nginx pgadmin || true
-              exit 1
-            fi
-
-            css_headers_file="$(mktemp)"
-            css_body_file="$(mktemp)"
-            trap 'rm -f "${css_headers_file}" "${css_body_file}"' EXIT
-
-            if ! curl -sS --fail -D "${css_headers_file}" -o "${css_body_file}" http://127.0.0.1:${HOST_PORT:-6788}/assets/app.css; then
-              echo "CSS 资源请求失败"
-              docker compose logs --no-color --tail=120 web nginx pgadmin || true
-              exit 1
-            fi
-
-            if ! grep -qi '^content-type: text/css' "${css_headers_file}" || [ ! -s "${css_body_file}" ] || ! grep -q ':root' "${css_body_file}"; then
-              echo "CSS 资源未正确对外提供"
-              docker compose logs --no-color --tail=120 web nginx pgadmin || true
-              exit 1
-            fi
+            cd "${DEPLOY_DIR}"
+            bash ./scripts/deploy_server.sh

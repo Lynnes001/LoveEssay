@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AdmissionCraft Phase 1</title>
+    <link rel="stylesheet" href="/css/base.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="panel">
+        <p class="eyebrow">AdmissionCraft</p>
+        <h1>Phase 1 Streaming Pipeline</h1>
+        <p class="lede">输入原始材料与申请要求，依次执行 extraction、draft、rewrite，并实时查看流式输出。</p>
+        <form id="generate-form" class="form">
+          <label>
+            <span>Session 名称</span>
+            <input name="name" value="张三-CMU-PS" required />
+          </label>
+          <label>
+            <span>学生背景</span>
+            <textarea name="student_background" rows="6" required>AI research, robotics internship, cross-cultural teamwork.</textarea>
+          </label>
+          <label>
+            <span>目标项目</span>
+            <input name="program" value="CMU MSCV" required />
+          </label>
+          <label>
+            <span>生成要求</span>
+            <textarea name="requirements" rows="4" required>900 words, personal statement, emphasize initiative and fit.</textarea>
+          </label>
+          <button type="submit">开始生成</button>
+        </form>
+      </section>
+      <section class="panel">
+        <div class="status-row">
+          <div>
+            <p class="meta-label">Task</p>
+            <p id="task-meta">尚未启动</p>
+          </div>
+          <div>
+            <p class="meta-label">状态</p>
+            <p id="task-status">idle</p>
+          </div>
+        </div>
+        <div class="output-stack">
+          <article class="output-panel output-panel-secondary">
+            <h2>Extraction</h2>
+            <pre id="extraction-output"></pre>
+          </article>
+          <article class="output-panel output-panel-secondary">
+            <h2>Draft</h2>
+            <pre id="draft-output"></pre>
+          </article>
+          <article class="output-panel output-panel-primary">
+            <h2>Rewrite</h2>
+            <pre id="rewrite-output"></pre>
+          </article>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/js/index.js"></script>
+  </body>
+</html>

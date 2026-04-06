@@ -1,12 +1,8 @@
-node_modules
 .git
-.github
-server-access
-login
-*.log
+.venv
+__pycache__
+.pytest_cache
 .DS_Store
-docs
-uploads
 pgdata
 redis-data
-temp
+server-access
