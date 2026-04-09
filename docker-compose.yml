@@ -28,7 +28,7 @@ services:
         condition: service_started
 
   postgres:
-    image: ${POSTGRES_IMAGE:-docker.xuanyuan.me/postgres:16}
+    image: ${POSTGRES_IMAGE:-docker.1ms.run/postgres:16}
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-loveessay}
       POSTGRES_USER: ${POSTGRES_USER:-loveessay}
@@ -42,12 +42,12 @@ services:
       retries: 20
 
   redis:
-    image: ${REDIS_IMAGE:-docker.xuanyuan.me/redis:7}
+    image: ${REDIS_IMAGE:-docker.1ms.run/redis:7}
     volumes:
       - redis-data:/data
 
   nginx:
-    image: ${NGINX_IMAGE:-docker.xuanyuan.me/nginx:1.27-alpine}
+    image: ${NGINX_IMAGE:-docker.1ms.run/nginx:1.27-alpine}
     depends_on:
       - web
     ports:
