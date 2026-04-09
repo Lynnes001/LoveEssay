@@ -80,6 +80,31 @@ REDIS_URL=$(quote_env "redis://${redis_host}:6379/0")
 EOF
 
 log "Bringing the stack up"
+
+# Configure Aliyun Docker registry mirror if Docker Hub is unreachable.
+# This is needed on Aliyun ECS where registry-1.docker.io is blocked/throttled.
+daemon_cfg=/etc/docker/daemon.json
+mirror_url="https://registry.cn-hangzhou.aliyuncs.com"
+if ! curl -fsSm 5 "https://registry-1.docker.io/v2/" >/dev/null 2>&1; then
+  log "Docker Hub unreachable — configuring Aliyun mirror (${mirror_url})"
+  if command -v jq >/dev/null 2>&1; then
+    existing="$(cat "$daemon_cfg" 2>/dev/null || echo '{}')"
+    updated="$(printf '%s' "$existing" | jq --arg m "$mirror_url" '."registry-mirrors" = ([."registry-mirrors"[]? // empty, $m] | unique)')"
+  else
+    # Fallback: write a minimal daemon.json (preserves nothing else, but works for a fresh server)
+    updated="{\"registry-mirrors\":[\"${mirror_url}\"]}"
+  fi
+  echo "$updated" | sudo tee "$daemon_cfg" > /dev/null
+  sudo systemctl restart docker
+  # Wait for Docker to come back
+  for _ in $(seq 1 10); do
+    docker info >/dev/null 2>&1 && break
+    sleep 2
+  done
+  docker info >/dev/null 2>&1 || die "Docker did not recover after daemon restart."
+  log "Docker mirror configured and daemon restarted"
+fi
+
 docker compose up -d --build --remove-orphans
 
 log "Waiting for the database to become ready"
