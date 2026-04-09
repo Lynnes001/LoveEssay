@@ -10,3 +10,5 @@ uploads/*
 pgdata/
 redis-data/
 temp/
+.codex/*
+.claude/*
