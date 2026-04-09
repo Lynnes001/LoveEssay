@@ -85,7 +85,7 @@ log "Bringing the stack up"
 # This is needed on Aliyun ECS where registry-1.docker.io is blocked/throttled.
 daemon_cfg=/etc/docker/daemon.json
 mirror_url="https://registry.cn-hangzhou.aliyuncs.com"
-if ! curl -fsSm 5 "https://registry-1.docker.io/v2/" >/dev/null 2>&1; then
+if [ "$(curl -sm 5 "https://registry-1.docker.io/v2/" -o /dev/null -w '%{http_code}')" = "000" ]; then
   log "Docker Hub unreachable — configuring Aliyun mirror (${mirror_url})"
   if command -v jq >/dev/null 2>&1; then
     existing="$(cat "$daemon_cfg" 2>/dev/null || echo '{}')"
