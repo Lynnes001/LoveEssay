@@ -25,85 +25,50 @@ if ! docker compose version >/dev/null 2>&1; then
   die "Docker Compose plugin is not available on the server."
 fi
 
-if [ ! -f docker-compose.yml ] && [ ! -f docker-compose.yaml ] && [ ! -f compose.yml ] && [ ! -f compose.yaml ]; then
-  die "No docker compose file found in the repository root."
-fi
-
 deploy_host_port="${DEPLOY_HOST_PORT:-8000}"
 postgres_db="${POSTGRES_DB:-loveessay}"
 postgres_user="${POSTGRES_USER:-loveessay}"
-postgres_host="${POSTGRES_HOST:-postgres}"
-redis_host="${REDIS_HOST:-redis}"
-backend_service="${BACKEND_SERVICE:-web}"
-db_service="${DB_SERVICE:-postgres}"
-redis_service="${REDIS_SERVICE:-redis}"
-nginx_service="${NGINX_SERVICE:-nginx}"
-deploy_domain="${DEPLOY_DOMAIN:-}"
 deploy_dir="${DEPLOY_DIR:-/opt/admissioncraft}"
-public_base_url="${PUBLIC_BASE_URL:-http://127.0.0.1:${deploy_host_port}}"
+public_base_url="http://127.0.0.1:${deploy_host_port}"
 
 cd "$deploy_dir"
 
-log "Writing .env for the deployment"
-quote_env() {
-  local value="${1}"
-  local escaped
-  escaped="$(printf '%s' "$value" | sed "s/'/'\"'\"'/g")"
-  printf "'%s'" "$escaped"
-}
+# Log in to Aliyun Container Registry so Docker can pull private images
+if [ -n "${ACR_USERNAME:-}" ] && [ -n "${ACR_PASSWORD:-}" ] && [ -n "${POSTGRES_IMAGE:-}" ]; then
+  acr_registry="$(printf '%s' "${POSTGRES_IMAGE}" | cut -d/ -f1)"
+  log "Logging in to ACR (${acr_registry})"
+  echo "${ACR_PASSWORD}" | docker login "${acr_registry}" -u "${ACR_USERNAME}" --password-stdin
+fi
 
+log "Writing .env for the deployment"
 cat > .env <<EOF
-PORT=$(quote_env "8000")
-HOST_PORT=$(quote_env "${deploy_host_port}")
-PUBLIC_BASE_URL=$(quote_env "${public_base_url}")
-DEPLOY_DOMAIN=$(quote_env "${deploy_domain}")
-DRAFT_MODEL_API_KEY=$(quote_env "${DRAFT_MODEL_API_KEY}")
-DRAFT_MODEL_BASE_URL=$(quote_env "${DRAFT_MODEL_BASE_URL:-}")
-DRAFT_MODEL_NAME=$(quote_env "${DRAFT_MODEL_NAME:-gpt-4o-mini}")
-POLISH_MODEL_API_KEY=$(quote_env "${POLISH_MODEL_API_KEY}")
-POLISH_MODEL_BASE_URL=$(quote_env "${POLISH_MODEL_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}")
-POLISH_MODEL_NAME=$(quote_env "${POLISH_MODEL_NAME:-qwen-plus}")
-POSTGRES_DB=$(quote_env "${postgres_db}")
-POSTGRES_USER=$(quote_env "${postgres_user}")
-POSTGRES_PASSWORD=$(quote_env "${POSTGRES_PASSWORD}")
-POSTGRES_HOST=$(quote_env "${postgres_host}")
-REDIS_HOST=$(quote_env "${redis_host}")
-DATABASE_URL=$(quote_env "postgresql+psycopg://${postgres_user}:${POSTGRES_PASSWORD}@${postgres_host}:5432/${postgres_db}")
-REDIS_URL=$(quote_env "redis://${redis_host}:6379/0")
+PORT=8000
+HOST_PORT=${deploy_host_port}
+PUBLIC_BASE_URL=${public_base_url}
+DRAFT_MODEL_API_KEY=${DRAFT_MODEL_API_KEY}
+POLISH_MODEL_API_KEY=${POLISH_MODEL_API_KEY}
+POSTGRES_DB=${postgres_db}
+POSTGRES_USER=${postgres_user}
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+POSTGRES_HOST=postgres
+REDIS_HOST=redis
+DATABASE_URL=postgresql+psycopg://${postgres_user}:${POSTGRES_PASSWORD}@postgres:5432/${postgres_db}
+REDIS_URL=redis://redis:6379/0
+LANGSMITH_API_KEY=${LANGSMITH_API_KEY:-}
+LANGSMITH_PROJECT=${LANGSMITH_PROJECT:-}
+LANGSMITH_TRACING=${LANGSMITH_TRACING:-false}
+POSTGRES_IMAGE=${POSTGRES_IMAGE:-postgres:16}
+REDIS_IMAGE=${REDIS_IMAGE:-redis:7}
+NGINX_IMAGE=${NGINX_IMAGE:-nginx:1.27-alpine}
 EOF
 
 log "Bringing the stack up"
-
-# Configure Aliyun Docker registry mirror if Docker Hub is unreachable.
-# This is needed on Aliyun ECS where registry-1.docker.io is blocked/throttled.
-daemon_cfg=/etc/docker/daemon.json
-mirror_url="https://registry.cn-hangzhou.aliyuncs.com"
-if [ "$(curl -sm 5 "https://registry-1.docker.io/v2/" -o /dev/null -w '%{http_code}')" = "000" ]; then
-  log "Docker Hub unreachable — configuring Aliyun mirror (${mirror_url})"
-  if command -v jq >/dev/null 2>&1; then
-    existing="$(cat "$daemon_cfg" 2>/dev/null || echo '{}')"
-    updated="$(printf '%s' "$existing" | jq --arg m "$mirror_url" '."registry-mirrors" = ([."registry-mirrors"[]? // empty, $m] | unique)')"
-  else
-    # Fallback: write a minimal daemon.json (preserves nothing else, but works for a fresh server)
-    updated="{\"registry-mirrors\":[\"${mirror_url}\"]}"
-  fi
-  echo "$updated" | sudo tee "$daemon_cfg" > /dev/null
-  sudo systemctl restart docker
-  # Wait for Docker to come back
-  for _ in $(seq 1 10); do
-    docker info >/dev/null 2>&1 && break
-    sleep 2
-  done
-  docker info >/dev/null 2>&1 || die "Docker did not recover after daemon restart."
-  log "Docker mirror configured and daemon restarted"
-fi
-
 docker compose up -d --build --remove-orphans
 
 log "Waiting for the database to become ready"
 db_ready=0
 for _ in $(seq 1 30); do
-  if docker compose exec -T "$db_service" pg_isready -U "$postgres_user" -d "$postgres_db" >/dev/null 2>&1; then
+  if docker compose exec -T postgres pg_isready -U "$postgres_user" -d "$postgres_db" >/dev/null 2>&1; then
     db_ready=1
     break
   fi
@@ -112,14 +77,14 @@ done
 
 if [ "$db_ready" -ne 1 ]; then
   docker compose ps || true
-  docker compose logs --no-color --tail=200 "$db_service" "$redis_service" "$backend_service" "$nginx_service" || true
+  docker compose logs --no-color --tail=200 postgres redis web nginx || true
   die "Database did not become ready in time."
 fi
 
 log "Running database migrations"
-if ! docker compose exec -T "$backend_service" python -m alembic upgrade head; then
+if ! docker compose exec -T web python -m alembic upgrade head; then
   docker compose ps || true
-  docker compose logs --no-color --tail=200 "$backend_service" "$db_service" "$redis_service" "$nginx_service" || true
+  docker compose logs --no-color --tail=200 web postgres redis nginx || true
   die "Database migrations failed."
 fi
 
@@ -136,9 +101,8 @@ done
 
 if [ "$health_ready" -ne 1 ]; then
   docker compose ps || true
-  docker compose logs --no-color --tail=200 "$backend_service" "$db_service" "$redis_service" "$nginx_service" || true
+  docker compose logs --no-color --tail=200 web postgres redis nginx || true
   die "Health check failed for ${health_url}."
 fi
 
-log "Deployment succeeded"
-printf '[deploy] Health check passed: %s\n' "$health_url"
+log "Deployment succeeded — ${health_url}"

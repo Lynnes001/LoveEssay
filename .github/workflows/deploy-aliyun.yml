@@ -19,46 +19,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate required secrets
-        shell: bash
-        env:
-          _SSH_HOST: ${{ secrets.SSH_HOST }}
-          _SSH_USER: ${{ secrets.SSH_USER }}
-          _SSH_KEY: ${{ secrets.SSH_KEY }}
-          _DRAFT_MODEL_API_KEY: ${{ secrets.DRAFT_MODEL_API_KEY }}
-          _POLISH_MODEL_API_KEY: ${{ secrets.POLISH_MODEL_API_KEY }}
-          _POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-        run: |
-          set -euo pipefail
-          missing=()
-          [ -n "${_SSH_HOST:-}"             ] || missing+=(SSH_HOST)
-          [ -n "${_SSH_USER:-}"             ] || missing+=(SSH_USER)
-          [ -n "${_SSH_KEY:-}"              ] || missing+=(SSH_KEY)
-          [ -n "${_DRAFT_MODEL_API_KEY:-}"  ] || missing+=(DRAFT_MODEL_API_KEY)
-          [ -n "${_POLISH_MODEL_API_KEY:-}" ] || missing+=(POLISH_MODEL_API_KEY)
-          [ -n "${_POSTGRES_PASSWORD:-}"    ] || missing+=(POSTGRES_PASSWORD)
-          if [ "${#missing[@]}" -ne 0 ]; then
-            echo "Missing secrets: ${missing[*]}" >&2
-            exit 1
-          fi
-
       - name: Prepare deploy directory on ECS
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ vars.ALIYUN_USER }}
+          key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
           port: 22
           script: mkdir -p /opt/admissioncraft
 
       - name: Upload repository to ECS
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ vars.ALIYUN_USER }}
+          key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
           port: 22
           source: "."
           target: /opt/admissioncraft
@@ -71,14 +46,23 @@ jobs:
           DRAFT_MODEL_API_KEY: ${{ secrets.DRAFT_MODEL_API_KEY }}
           POLISH_MODEL_API_KEY: ${{ secrets.POLISH_MODEL_API_KEY }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          DRAFT_MODEL_BASE_URL: ${{ secrets.DRAFT_MODEL_BASE_URL }}
+          POSTGRES_DB: ${{ vars.POSTGRES_DB }}
+          POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+          DEPLOY_HOST_PORT: ${{ vars.DEPLOY_HOST_PORT }}
+          ACR_USERNAME: ${{ vars.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+          POSTGRES_IMAGE: ${{ vars.POSTGRES_IMAGE }}
+          REDIS_IMAGE: ${{ vars.REDIS_IMAGE }}
+          NGINX_IMAGE: ${{ vars.NGINX_IMAGE }}
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+          LANGSMITH_PROJECT: ${{ vars.LANGSMITH_PROJECT }}
+          LANGSMITH_TRACING: ${{ vars.LANGSMITH_TRACING }}
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ vars.ALIYUN_USER }}
+          key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
           port: 22
-          envs: DRAFT_MODEL_API_KEY,POLISH_MODEL_API_KEY,POSTGRES_PASSWORD,DRAFT_MODEL_BASE_URL
+          envs: DRAFT_MODEL_API_KEY,POLISH_MODEL_API_KEY,POSTGRES_PASSWORD,POSTGRES_DB,POSTGRES_USER,DEPLOY_HOST_PORT,ACR_USERNAME,ACR_PASSWORD,POSTGRES_IMAGE,REDIS_IMAGE,NGINX_IMAGE,LANGSMITH_API_KEY,LANGSMITH_PROJECT,LANGSMITH_TRACING
           script: |
             set -euo pipefail
             cd /opt/admissioncraft
