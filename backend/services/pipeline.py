@@ -29,10 +29,19 @@ class GenerationPipeline:
             yield {"stage": "extraction", "delta": chunk}
 
         extraction_text = "".join(extraction_parts).strip()
+        # Strip markdown code fences if the model wrapped the JSON
+        if extraction_text.startswith("```"):
+            lines = extraction_text.splitlines()
+            extraction_text = "\n".join(
+                line for line in lines if not line.strip().startswith("```")
+            ).strip()
         try:
             profile = json.loads(extraction_text)
         except json.JSONDecodeError as exc:
-            raise ValueError("Extraction stage returned invalid JSON") from exc
+            preview = extraction_text[:200]
+            raise ValueError(
+                f"Extraction stage returned invalid JSON. Preview: {preview!r}"
+            ) from exc
 
         common_variables = self._build_common_variables(session_payload, profile, extraction_text)
         draft_system, draft_prompt = self.prompt_service.stage_prompts("draft", common_variables)
