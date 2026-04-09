@@ -40,6 +40,15 @@ if [ -n "${ACR_USERNAME:-}" ] && [ -n "${ACR_PASSWORD:-}" ] && [ -n "${POSTGRES_
   echo "${ACR_PASSWORD}" | docker login "${acr_registry}" -u "${ACR_USERNAME}" --password-stdin
 fi
 
+log "Writing .htpasswd for nginx basic auth"
+if [ -n "${BASIC_AUTH_USER:-}" ] && [ -n "${BASIC_AUTH_PASS:-}" ]; then
+  # openssl passwd -apr1 produces an Apache-compatible MD5 hash
+  hashed="$(openssl passwd -apr1 "${BASIC_AUTH_PASS}")"
+  printf '%s:%s\n' "${BASIC_AUTH_USER}" "${hashed}" > nginx/.htpasswd
+else
+  die "BASIC_AUTH_USER and BASIC_AUTH_PASS must be set."
+fi
+
 log "Writing .env for the deployment"
 cat > .env <<EOF
 PORT=8000
