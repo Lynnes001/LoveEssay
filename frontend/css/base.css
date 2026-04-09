@@ -1,0 +1,140 @@
+:root {
+  color-scheme: light;
+  --bg: #f4efe7;
+  --panel: rgba(255, 252, 247, 0.92);
+  --line: #d3c3b4;
+  --ink: #20150f;
+  --muted: #6d5a4d;
+  --accent: #9d3d21;
+  --accent-2: #d39b5f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Iowan Old Style", "Palatino Linotype", serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(211, 155, 95, 0.35), transparent 30%),
+    linear-gradient(135deg, #f7f0e8, #e7ddd1);
+}
+
+.layout {
+  width: min(1200px, calc(100vw - 40px));
+  margin: 32px auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 16px 50px rgba(53, 29, 18, 0.08);
+}
+
+.eyebrow,
+.meta-label {
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+h1,
+h2 {
+  margin: 0 0 12px;
+}
+
+.lede {
+  color: var(--muted);
+}
+
+.form {
+  display: grid;
+  gap: 16px;
+}
+
+label {
+  display: grid;
+  gap: 8px;
+}
+
+input,
+textarea,
+button {
+  font: inherit;
+}
+
+input,
+textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fffdf9;
+}
+
+button {
+  border: 0;
+  border-radius: 999px;
+  padding: 14px 18px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  color: white;
+  cursor: pointer;
+}
+
+.status-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.output-stack {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.output-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.output-panel-secondary pre {
+  min-height: 180px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.output-panel-primary pre {
+  min-height: 420px;
+}
+
+pre {
+  margin: 0;
+  padding: 16px;
+  border-radius: 16px;
+  background: #1c1614;
+  color: #f7f0e8;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .output-panel-secondary pre {
+    max-height: 220px;
+  }
+
+  .output-panel-primary pre {
+    min-height: 320px;
+  }
+}
