@@ -29,24 +29,17 @@ if [ ! -f docker-compose.yml ] && [ ! -f docker-compose.yaml ] && [ ! -f compose
   die "No docker compose file found in the repository root."
 fi
 
-deploy_host_port="${DEPLOY_HOST_PORT:-${HOST_PORT:-}}"
-[ -n "${deploy_host_port:-}" ] || die "DEPLOY_HOST_PORT (or HOST_PORT) must be provided."
-[ "${deploy_host_port}" -eq "${deploy_host_port}" ] 2>/dev/null || die "DEPLOY_HOST_PORT must be numeric."
-[ -n "${DRAFT_MODEL_API_KEY:-}" ] || die "DRAFT_MODEL_API_KEY must be provided."
-[ -n "${POLISH_MODEL_API_KEY:-}" ] || die "POLISH_MODEL_API_KEY must be provided."
-[ -n "${POSTGRES_PASSWORD:-}" ] || die "POSTGRES_PASSWORD must be provided."
-
+deploy_host_port="${DEPLOY_HOST_PORT:-8000}"
 postgres_db="${POSTGRES_DB:-loveessay}"
 postgres_user="${POSTGRES_USER:-loveessay}"
 postgres_host="${POSTGRES_HOST:-postgres}"
 redis_host="${REDIS_HOST:-redis}"
 backend_service="${BACKEND_SERVICE:-web}"
-worker_service="${WORKER_SERVICE:-worker}"
 db_service="${DB_SERVICE:-postgres}"
 redis_service="${REDIS_SERVICE:-redis}"
 nginx_service="${NGINX_SERVICE:-nginx}"
 deploy_domain="${DEPLOY_DOMAIN:-}"
-deploy_dir="${DEPLOY_DIR:-$repo_dir}"
+deploy_dir="${DEPLOY_DIR:-/opt/admissioncraft}"
 public_base_url="${PUBLIC_BASE_URL:-http://127.0.0.1:${deploy_host_port}}"
 
 cd "$deploy_dir"
@@ -119,14 +112,14 @@ done
 
 if [ "$db_ready" -ne 1 ]; then
   docker compose ps || true
-  docker compose logs --no-color --tail=200 "$db_service" "$redis_service" "$backend_service" "$worker_service" "$nginx_service" || true
+  docker compose logs --no-color --tail=200 "$db_service" "$redis_service" "$backend_service" "$nginx_service" || true
   die "Database did not become ready in time."
 fi
 
 log "Running database migrations"
 if ! docker compose exec -T "$backend_service" python -m alembic upgrade head; then
   docker compose ps || true
-  docker compose logs --no-color --tail=200 "$backend_service" "$worker_service" "$db_service" "$redis_service" "$nginx_service" || true
+  docker compose logs --no-color --tail=200 "$backend_service" "$db_service" "$redis_service" "$nginx_service" || true
   die "Database migrations failed."
 fi
 
@@ -143,7 +136,7 @@ done
 
 if [ "$health_ready" -ne 1 ]; then
   docker compose ps || true
-  docker compose logs --no-color --tail=200 "$backend_service" "$worker_service" "$db_service" "$redis_service" "$nginx_service" || true
+  docker compose logs --no-color --tail=200 "$backend_service" "$db_service" "$redis_service" "$nginx_service" || true
   die "Health check failed for ${health_url}."
 fi
 

@@ -15,48 +15,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    env:
-      SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST || secrets.ALIYUN_HOST }}
-      SSH_USER: ${{ vars.DEPLOY_SSH_USER || vars.ALIYUN_USER }}
-      SSH_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY || secrets.ALIYUN_SSH_PRIVATE_KEY }}
-      SSH_PASSPHRASE: ${{ secrets.DEPLOY_SSH_PASSPHRASE || secrets.ALIYUN_SSH_PASSPHRASE }}
-      DRAFT_MODEL_API_KEY: ${{ secrets.DRAFT_MODEL_API_KEY || secrets.OPENAI_API_KEY }}
-      DRAFT_MODEL_BASE_URL: ${{ secrets.DRAFT_MODEL_BASE_URL }}
-      DRAFT_MODEL_NAME: ${{ vars.DRAFT_MODEL_NAME }}
-      POLISH_MODEL_API_KEY: ${{ secrets.POLISH_MODEL_API_KEY || secrets.DASHSCOPE_API_KEY }}
-      POLISH_MODEL_BASE_URL: ${{ vars.POLISH_MODEL_BASE_URL }}
-      POLISH_MODEL_NAME: ${{ vars.POLISH_MODEL_NAME }}
-      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-      DEPLOY_HOST_PORT: ${{ vars.DEPLOY_HOST_PORT || vars.HOST_PORT }}
-      DEPLOY_DOMAIN: ${{ vars.DEPLOY_DOMAIN || vars.APP_DOMAIN }}
-      POSTGRES_DB: ${{ vars.POSTGRES_DB || 'loveessay' }}
-      POSTGRES_USER: ${{ vars.POSTGRES_USER || 'loveessay' }}
-      POSTGRES_HOST: ${{ vars.POSTGRES_HOST || 'postgres' }}
-      REDIS_HOST: ${{ vars.REDIS_HOST || 'redis' }}
-      BACKEND_SERVICE: ${{ vars.BACKEND_SERVICE || 'web' }}
-      WORKER_SERVICE: ${{ vars.WORKER_SERVICE || 'worker' }}
-      DB_SERVICE: ${{ vars.DB_SERVICE || 'postgres' }}
-      REDIS_SERVICE: ${{ vars.REDIS_SERVICE || 'redis' }}
-      NGINX_SERVICE: ${{ vars.NGINX_SERVICE || 'nginx' }}
-      DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/tmp/loveessay-deploy' }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate required deployment configuration
+      - name: Validate required secrets
         shell: bash
         env:
-          _SSH_HOST: ${{ env.SSH_HOST }}
-          _SSH_USER: ${{ env.SSH_USER }}
-          _SSH_KEY: ${{ env.SSH_KEY }}
-          _DRAFT_MODEL_API_KEY: ${{ env.DRAFT_MODEL_API_KEY }}
-          _POLISH_MODEL_API_KEY: ${{ env.POLISH_MODEL_API_KEY }}
-          _POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
-          _DEPLOY_HOST_PORT: ${{ env.DEPLOY_HOST_PORT }}
+          _SSH_HOST: ${{ secrets.SSH_HOST }}
+          _SSH_USER: ${{ secrets.SSH_USER }}
+          _SSH_KEY: ${{ secrets.SSH_KEY }}
+          _DRAFT_MODEL_API_KEY: ${{ secrets.DRAFT_MODEL_API_KEY }}
+          _POLISH_MODEL_API_KEY: ${{ secrets.POLISH_MODEL_API_KEY }}
+          _POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
           set -euo pipefail
-
           missing=()
           [ -n "${_SSH_HOST:-}"             ] || missing+=(SSH_HOST)
           [ -n "${_SSH_USER:-}"             ] || missing+=(SSH_USER)
@@ -64,93 +37,49 @@ jobs:
           [ -n "${_DRAFT_MODEL_API_KEY:-}"  ] || missing+=(DRAFT_MODEL_API_KEY)
           [ -n "${_POLISH_MODEL_API_KEY:-}" ] || missing+=(POLISH_MODEL_API_KEY)
           [ -n "${_POSTGRES_PASSWORD:-}"    ] || missing+=(POSTGRES_PASSWORD)
-          [ -n "${_DEPLOY_HOST_PORT:-}"     ] || missing+=(DEPLOY_HOST_PORT)
-
           if [ "${#missing[@]}" -ne 0 ]; then
-            printf 'Missing required deployment configuration: %s\n' "${missing[*]}" >&2
-            printf '%s\n' \
-              'Set these GitHub secrets or vars before deploying:' \
-              '  SSH host/user/key: DEPLOY_SSH_HOST or ALIYUN_HOST, DEPLOY_SSH_USER or ALIYUN_USER, DEPLOY_SSH_PRIVATE_KEY or ALIYUN_SSH_PRIVATE_KEY' \
-              '  Draft model key: DRAFT_MODEL_API_KEY (or OPENAI_API_KEY as fallback)' \
-              '  Polish model key: POLISH_MODEL_API_KEY (or DASHSCOPE_API_KEY as fallback)' \
-              '  Database password: POSTGRES_PASSWORD' \
-              '  Exposed host port: DEPLOY_HOST_PORT or HOST_PORT' \
-              'Optional values:' \
-              '  DEPLOY_DOMAIN or APP_DOMAIN, POSTGRES_DB, POSTGRES_USER, POSTGRES_HOST, REDIS_HOST, BACKEND_SERVICE, WORKER_SERVICE, DB_SERVICE, REDIS_SERVICE, NGINX_SERVICE, DEPLOY_DIR' >&2
+            echo "Missing secrets: ${missing[*]}" >&2
             exit 1
           fi
 
-          case "${_DEPLOY_HOST_PORT}" in
-            ''|*[!0-9]*)
-              echo "DEPLOY_HOST_PORT must be a numeric TCP port." >&2
-              exit 1
-              ;;
-          esac
-
-          if [ ! -f docker-compose.yml ] && [ ! -f docker-compose.yaml ] && [ ! -f compose.yml ] && [ ! -f compose.yaml ]; then
-            echo "Missing Docker Compose file in repository root. Expected docker-compose.yml (or compose.yml)." >&2
-            exit 1
-          fi
-
-      - name: Prepare deployment directory on ECS
+      - name: Prepare deploy directory on ECS
         uses: appleboy/ssh-action@v1.0.3
-        env:
-          DEPLOY_DIR: ${{ env.DEPLOY_DIR }}
         with:
-          host: ${{ env.SSH_HOST }}
-          username: ${{ env.SSH_USER }}
-          key: ${{ env.SSH_KEY }}
-          passphrase: ${{ env.SSH_PASSPHRASE }}
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           port: 22
-          envs: DEPLOY_DIR
-          script: |
-            set -euo pipefail
-            mkdir -p "${DEPLOY_DIR}"
+          script: mkdir -p /opt/admissioncraft
 
       - name: Upload repository to ECS
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ env.SSH_HOST }}
-          username: ${{ env.SSH_USER }}
-          key: ${{ env.SSH_KEY }}
-          passphrase: ${{ env.SSH_PASSPHRASE }}
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           port: 22
           source: "."
-          target: ${{ env.DEPLOY_DIR }}
+          target: /opt/admissioncraft
           overwrite: true
           rm: true
-          strip_components: 0
 
-      - name: Run deployment script on ECS
+      - name: Deploy on ECS
         uses: appleboy/ssh-action@v1.0.3
         env:
-          DRAFT_MODEL_API_KEY: ${{ env.DRAFT_MODEL_API_KEY }}
-          DRAFT_MODEL_BASE_URL: ${{ env.DRAFT_MODEL_BASE_URL }}
-          DRAFT_MODEL_NAME: ${{ env.DRAFT_MODEL_NAME }}
-          POLISH_MODEL_API_KEY: ${{ env.POLISH_MODEL_API_KEY }}
-          POLISH_MODEL_BASE_URL: ${{ env.POLISH_MODEL_BASE_URL }}
-          POLISH_MODEL_NAME: ${{ env.POLISH_MODEL_NAME }}
-          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
-          DEPLOY_HOST_PORT: ${{ env.DEPLOY_HOST_PORT }}
-          DEPLOY_DOMAIN: ${{ env.DEPLOY_DOMAIN }}
-          POSTGRES_DB: ${{ env.POSTGRES_DB }}
-          POSTGRES_USER: ${{ env.POSTGRES_USER }}
-          POSTGRES_HOST: ${{ env.POSTGRES_HOST }}
-          REDIS_HOST: ${{ env.REDIS_HOST }}
-          BACKEND_SERVICE: ${{ env.BACKEND_SERVICE }}
-          WORKER_SERVICE: ${{ env.WORKER_SERVICE }}
-          DB_SERVICE: ${{ env.DB_SERVICE }}
-          REDIS_SERVICE: ${{ env.REDIS_SERVICE }}
-          NGINX_SERVICE: ${{ env.NGINX_SERVICE }}
-          DEPLOY_DIR: ${{ env.DEPLOY_DIR }}
+          DRAFT_MODEL_API_KEY: ${{ secrets.DRAFT_MODEL_API_KEY }}
+          POLISH_MODEL_API_KEY: ${{ secrets.POLISH_MODEL_API_KEY }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          DRAFT_MODEL_BASE_URL: ${{ secrets.DRAFT_MODEL_BASE_URL }}
         with:
-          host: ${{ env.SSH_HOST }}
-          username: ${{ env.SSH_USER }}
-          key: ${{ env.SSH_KEY }}
-          passphrase: ${{ env.SSH_PASSPHRASE }}
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           port: 22
-          envs: DRAFT_MODEL_API_KEY,DRAFT_MODEL_BASE_URL,DRAFT_MODEL_NAME,POLISH_MODEL_API_KEY,POLISH_MODEL_BASE_URL,POLISH_MODEL_NAME,POSTGRES_PASSWORD,DEPLOY_HOST_PORT,DEPLOY_DOMAIN,POSTGRES_DB,POSTGRES_USER,POSTGRES_HOST,REDIS_HOST,BACKEND_SERVICE,WORKER_SERVICE,DB_SERVICE,REDIS_SERVICE,NGINX_SERVICE,DEPLOY_DIR
+          envs: DRAFT_MODEL_API_KEY,POLISH_MODEL_API_KEY,POSTGRES_PASSWORD,DRAFT_MODEL_BASE_URL
           script: |
             set -euo pipefail
-            cd "${DEPLOY_DIR}"
+            cd /opt/admissioncraft
             bash ./scripts/deploy_server.sh
