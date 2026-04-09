@@ -20,8 +20,12 @@ jobs:
       SSH_USER: ${{ vars.DEPLOY_SSH_USER || vars.ALIYUN_USER }}
       SSH_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY || secrets.ALIYUN_SSH_PRIVATE_KEY }}
       SSH_PASSPHRASE: ${{ secrets.DEPLOY_SSH_PASSPHRASE || secrets.ALIYUN_SSH_PASSPHRASE }}
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+      DRAFT_MODEL_API_KEY: ${{ secrets.DRAFT_MODEL_API_KEY || secrets.OPENAI_API_KEY }}
+      DRAFT_MODEL_BASE_URL: ${{ secrets.DRAFT_MODEL_BASE_URL }}
+      DRAFT_MODEL_NAME: ${{ vars.DRAFT_MODEL_NAME }}
+      POLISH_MODEL_API_KEY: ${{ secrets.POLISH_MODEL_API_KEY || secrets.DASHSCOPE_API_KEY }}
+      POLISH_MODEL_BASE_URL: ${{ vars.POLISH_MODEL_BASE_URL }}
+      POLISH_MODEL_NAME: ${{ vars.POLISH_MODEL_NAME }}
       POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
       DEPLOY_HOST_PORT: ${{ vars.DEPLOY_HOST_PORT || vars.HOST_PORT }}
       DEPLOY_DOMAIN: ${{ vars.DEPLOY_DOMAIN || vars.APP_DOMAIN }}
@@ -50,8 +54,8 @@ jobs:
             SSH_HOST
             SSH_USER
             SSH_KEY
-            OPENAI_API_KEY
-            DASHSCOPE_API_KEY
+            DRAFT_MODEL_API_KEY
+            POLISH_MODEL_API_KEY
             POSTGRES_PASSWORD
             DEPLOY_HOST_PORT
           )
@@ -67,7 +71,8 @@ jobs:
             printf '%s\n' \
               'Set these GitHub secrets or vars before deploying:' \
               '  SSH host/user/key: DEPLOY_SSH_HOST or ALIYUN_HOST, DEPLOY_SSH_USER or ALIYUN_USER, DEPLOY_SSH_PRIVATE_KEY or ALIYUN_SSH_PRIVATE_KEY' \
-              '  Model provider keys: OPENAI_API_KEY, DASHSCOPE_API_KEY' \
+              '  Draft model key: DRAFT_MODEL_API_KEY (or OPENAI_API_KEY as fallback)' \
+              '  Polish model key: POLISH_MODEL_API_KEY (or DASHSCOPE_API_KEY as fallback)' \
               '  Database password: POSTGRES_PASSWORD' \
               '  Exposed host port: DEPLOY_HOST_PORT or HOST_PORT' \
               'Optional values:' \
@@ -119,8 +124,12 @@ jobs:
       - name: Run deployment script on ECS
         uses: appleboy/ssh-action@v1.0.3
         env:
-          OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
-          DASHSCOPE_API_KEY: ${{ env.DASHSCOPE_API_KEY }}
+          DRAFT_MODEL_API_KEY: ${{ env.DRAFT_MODEL_API_KEY }}
+          DRAFT_MODEL_BASE_URL: ${{ env.DRAFT_MODEL_BASE_URL }}
+          DRAFT_MODEL_NAME: ${{ env.DRAFT_MODEL_NAME }}
+          POLISH_MODEL_API_KEY: ${{ env.POLISH_MODEL_API_KEY }}
+          POLISH_MODEL_BASE_URL: ${{ env.POLISH_MODEL_BASE_URL }}
+          POLISH_MODEL_NAME: ${{ env.POLISH_MODEL_NAME }}
           POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
           DEPLOY_HOST_PORT: ${{ env.DEPLOY_HOST_PORT }}
           DEPLOY_DOMAIN: ${{ env.DEPLOY_DOMAIN }}
@@ -140,7 +149,7 @@ jobs:
           key: ${{ env.SSH_KEY }}
           passphrase: ${{ env.SSH_PASSPHRASE }}
           port: 22
-          envs: OPENAI_API_KEY,DASHSCOPE_API_KEY,POSTGRES_PASSWORD,DEPLOY_HOST_PORT,DEPLOY_DOMAIN,POSTGRES_DB,POSTGRES_USER,POSTGRES_HOST,REDIS_HOST,BACKEND_SERVICE,WORKER_SERVICE,DB_SERVICE,REDIS_SERVICE,NGINX_SERVICE,DEPLOY_DIR
+          envs: DRAFT_MODEL_API_KEY,DRAFT_MODEL_BASE_URL,DRAFT_MODEL_NAME,POLISH_MODEL_API_KEY,POLISH_MODEL_BASE_URL,POLISH_MODEL_NAME,POSTGRES_PASSWORD,DEPLOY_HOST_PORT,DEPLOY_DOMAIN,POSTGRES_DB,POSTGRES_USER,POSTGRES_HOST,REDIS_HOST,BACKEND_SERVICE,WORKER_SERVICE,DB_SERVICE,REDIS_SERVICE,NGINX_SERVICE,DEPLOY_DIR
           script: |
             set -euo pipefail
             cd "${DEPLOY_DIR}"
