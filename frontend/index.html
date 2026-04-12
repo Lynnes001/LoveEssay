@@ -8,8 +8,6 @@
   </head>
   <body>
     <div class="platform-shell">
-
-      <!-- ── Sidebar ── -->
       <aside class="sidebar">
         <div class="sidebar-logo">
           <p class="sidebar-logo-name">AdmissionCraft</p>
@@ -59,71 +57,108 @@
         </div>
       </aside>
 
-      <!-- ── Main area ── -->
       <main class="platform-main" id="platform-main">
-
-        <!-- Essay Writer tool (active by default) -->
         <div id="tool-essay-writer">
-          <div class="layout">
-            <section class="panel">
-              <p class="eyebrow">AdmissionCraft</p>
-              <h1>Essay Writer</h1>
-              <p class="lede">输入原始材料与申请要求，依次执行 extraction、draft、rewrite，并实时查看流式输出。</p>
-              <form id="generate-form" class="form">
-                <label>
-                  <span>Session 名称</span>
-                  <input name="name" value="张三-CMU-PS" required />
-                </label>
-                <label>
-                  <span>学生背景</span>
-                  <textarea name="student_background" rows="6" required>AI research, robotics internship, cross-cultural teamwork.</textarea>
-                </label>
-                <label>
-                  <span>目标项目</span>
-                  <input name="program" value="CMU MSCV" required />
-                </label>
-                <label>
-                  <span>生成要求</span>
-                  <textarea name="requirements" rows="4" required>900 words, personal statement, emphasize initiative and fit.</textarea>
-                </label>
-                <button type="submit" id="submit-btn">开始生成</button>
-              </form>
-            </section>
-            <section class="panel">
-              <div class="status-row">
-                <div>
-                  <p class="meta-label">Task</p>
-                  <p id="task-meta">尚未启动</p>
-                </div>
-                <div>
-                  <p class="meta-label">状态</p>
-                  <p id="task-status">idle</p>
-                </div>
+          <main class="app-shell">
+            <header class="status-bar" aria-label="任务状态总览">
+              <div class="status-bar__brand">
+                <p class="eyebrow">AdmissionCraft Console</p>
+                <h1>Phase 1 Workbench</h1>
               </div>
-              <div class="output-stack">
-                <article class="output-panel output-panel-secondary">
-                  <h2>Extraction</h2>
-                  <pre id="extraction-output"></pre>
-                </article>
-                <article class="output-panel output-panel-secondary">
-                  <h2>Draft</h2>
-                  <pre id="draft-output"></pre>
-                </article>
-                <article class="output-panel output-panel-primary">
-                  <h2>Rewrite</h2>
-                  <pre id="rewrite-output"></pre>
-                </article>
-              </div>
+              <dl class="status-grid">
+                <div class="status-card">
+                  <dt class="meta-label">Task</dt>
+                  <dd id="task-meta">尚未启动</dd>
+                </div>
+                <div class="status-card">
+                  <dt class="meta-label">Status</dt>
+                  <dd id="task-status" data-state="idle">idle</dd>
+                </div>
+                <div class="status-card">
+                  <dt class="meta-label">Stage</dt>
+                  <dd id="task-stage" data-stage="idle">idle</dd>
+                </div>
+              </dl>
+            </header>
+
+            <section class="workspace">
+              <aside class="control-panel">
+                <div class="panel-heading">
+                  <p class="eyebrow">Control Panel</p>
+                  <h2>Run pipeline</h2>
+                  <p class="lede">配置材料与要求，启动三阶段生成流水线。</p>
+                </div>
+
+                <form id="generate-form" class="form">
+                  <label>
+                    <span>Session 名称</span>
+                    <input name="name" value="张三-CMU-PS" required />
+                  </label>
+                  <label>
+                    <span>学生背景</span>
+                    <textarea name="student_background" rows="6" required>AI research, robotics internship, cross-cultural teamwork.</textarea>
+                  </label>
+                  <label>
+                    <span>目标项目</span>
+                    <input name="program" value="CMU MSCV" required />
+                  </label>
+                  <label>
+                    <span>生成要求</span>
+                    <textarea name="requirements" rows="4" required>900 words, personal statement, emphasize initiative and fit.</textarea>
+                  </label>
+                  <button id="generate-button" type="submit">开始生成</button>
+                </form>
+              </aside>
+
+              <section class="task-workspace">
+                <div class="panel-heading">
+                  <p class="eyebrow">Pipeline Monitor</p>
+                  <h2>Task workspace</h2>
+                  <p class="lede">聚焦当前阶段输出，随时切换查看 extraction、draft、rewrite。</p>
+                </div>
+
+                <nav class="stage-monitor" aria-label="生成阶段">
+                  <button class="stage-chip is-selected" type="button" data-stage="extraction" data-state="idle" aria-pressed="true">
+                    <span class="stage-chip__name">Extraction</span>
+                    <span class="stage-chip__status" id="stage-extraction-status">idle</span>
+                  </button>
+                  <button class="stage-chip" type="button" data-stage="draft" data-state="idle" aria-pressed="false">
+                    <span class="stage-chip__name">Draft</span>
+                    <span class="stage-chip__status" id="stage-draft-status">idle</span>
+                  </button>
+                  <button class="stage-chip" type="button" data-stage="rewrite" data-state="idle" aria-pressed="false">
+                    <span class="stage-chip__name">Rewrite</span>
+                    <span class="stage-chip__status" id="stage-rewrite-status">idle</span>
+                  </button>
+                </nav>
+
+                <div class="output-workspace">
+                  <div class="output-workspace__header">
+                    <div>
+                      <p class="meta-label">Focused Output</p>
+                      <h3 id="output-title">Extraction</h3>
+                    </div>
+                    <p class="output-hint">默认跟随活跃阶段，完成后聚焦最终改写稿。</p>
+                  </div>
+
+                  <article class="output-panel" data-stage-panel="extraction">
+                    <pre id="extraction-output"></pre>
+                  </article>
+                  <article class="output-panel" data-stage-panel="draft" hidden>
+                    <pre id="draft-output"></pre>
+                  </article>
+                  <article class="output-panel" data-stage-panel="rewrite" hidden>
+                    <pre id="rewrite-output"></pre>
+                  </article>
+                </div>
+              </section>
             </section>
-          </div>
+          </main>
         </div>
 
-        <!-- Coming-soon panels rendered here by JS -->
         <div id="tool-coming-soon" style="display:none"></div>
-
       </main>
     </div>
-
     <script type="module" src="/js/index.js"></script>
   </body>
 </html>

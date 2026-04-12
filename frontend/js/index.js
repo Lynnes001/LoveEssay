@@ -5,19 +5,35 @@ import { openTaskStream } from "/js/stream.js";
 // ── Generation form ──────────────────────────────────────
 
 const form = document.querySelector("#generate-form");
+const submitButton = document.querySelector("#generate-button");
 const taskMeta = document.querySelector("#task-meta");
 const taskStatus = document.querySelector("#task-status");
+const taskStage = document.querySelector("#task-stage");
+const outputTitle = document.querySelector("#output-title");
 const extractionOutput = document.querySelector("#extraction-output");
 const draftOutput = document.querySelector("#draft-output");
 const rewriteOutput = document.querySelector("#rewrite-output");
+const stageButtons = Array.from(document.querySelectorAll(".stage-chip[data-stage]"));
+const stagePanels = Array.from(document.querySelectorAll("[data-stage-panel]"));
+const stageStatusNodes = {
+  extraction: document.querySelector("#stage-extraction-status"),
+  draft: document.querySelector("#stage-draft-status"),
+  rewrite: document.querySelector("#stage-rewrite-status"),
+};
 
 initializeGenerationForm({
   form,
+  submitButton,
   taskMeta,
   taskStatus,
+  taskStage,
+  outputTitle,
   extractionOutput,
   draftOutput,
   rewriteOutput,
+  stageButtons,
+  stagePanels,
+  stageStatusNodes,
   createGenerationTask,
   fetchTask,
   openTaskStream,
