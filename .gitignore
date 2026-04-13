@@ -16,3 +16,4 @@ temp/
 .claude/*
 node_modules
 nginx/.htpasswd
+.playwright-cli

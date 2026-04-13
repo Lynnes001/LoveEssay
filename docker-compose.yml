@@ -20,7 +20,7 @@ services:
       dockerfile: Dockerfile
     env_file:
       - .env
-    command: celery -A tasks.celery_app.celery_app worker --loglevel=info
+    command: celery -A tasks.celery_app.celery_app worker --loglevel=info --concurrency=${WORKER_CONCURRENCY:-4} --prefetch-multiplier=${WORKER_PREFETCH_MULTIPLIER:-1}
     depends_on:
       postgres:
         condition: service_healthy
