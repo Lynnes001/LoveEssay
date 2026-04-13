@@ -2,6 +2,8 @@
 
 本文档用于固化当前已经确认的 Personal Statement（PS）生成工作流，作为后续产品设计、OpenSpec proposal 和工程实现的基础。
 
+配套的 stage contract 与最小对象定义见 [PS工作流_StageContract_MinimalSchemas_v1.md](/Users/sid/Repos/LoveEssay/docs/PS工作流_StageContract_MinimalSchemas_v1.md)。
+
 当前范围明确如下：
 
 - 本项目当前只聚焦 `Personal Statement (PS)`
