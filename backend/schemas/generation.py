@@ -23,6 +23,7 @@ class TaskRead(BaseModel):
 
     id: int
     session_id: int
+    phase: Optional[str] = None
     status: str
     current_stage: Optional[str] = None
     error_msg: Optional[str] = None

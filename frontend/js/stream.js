@@ -20,6 +20,7 @@ export function openTaskStream(taskId, handlers) {
 
   source.onerror = () => {
     handlers.onTransportError?.();
+    source.close();
   };
 
   source.addEventListener("done", (event) => {

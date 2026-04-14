@@ -19,6 +19,7 @@ def get_task(task_id: int, db: Session = Depends(get_db)) -> TaskRead:
     return TaskRead(
         id=task.id,
         session_id=task.session_id,
+        phase=task.phase,
         status=task.status,
         current_stage=task.current_stage,
         error_msg=task.error_msg,

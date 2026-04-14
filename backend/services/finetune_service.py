@@ -37,6 +37,7 @@ class FinetuneService:
                         {"role": "system", "content": system_prompt or "You are a helpful assistant."},
                         {"role": "user", "content": prompt},
                     ],
+                    extra_body={"enable_thinking": False},
                 )
                 for chunk in stream:
                     delta = chunk.choices[0].delta.content if chunk.choices else None

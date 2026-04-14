@@ -18,8 +18,9 @@ def _should_retry(exc: Exception) -> bool:
 
 
 class LLMService:
-    def __init__(self) -> None:
+    def __init__(self, model_name: Optional[str] = None) -> None:
         self.settings = get_settings()
+        self._model_name = model_name  # override; None means use settings default
 
     def stream(self, prompt: str, system_prompt: Optional[str] = None) -> Iterator[str]:
         if not self.settings.base_model_api_key:
@@ -39,16 +40,18 @@ class LLMService:
             return
 
         client = OpenAI(api_key=self.settings.base_model_api_key, base_url=self.settings.base_model_base_url)
+        model = self._model_name or self.settings.base_model_name
         last_exc: Exception | None = None
         for attempt, delay in enumerate((*_RETRY_DELAYS, None), start=1):
             try:
                 stream = client.chat.completions.create(
-                    model=self.settings.base_model_name,
+                    model=model,
                     stream=True,
                     messages=[
                         {"role": "system", "content": system_prompt or "You are a helpful assistant."},
                         {"role": "user", "content": prompt},
                     ],
+                    extra_body={"enable_thinking": False},
                 )
                 for chunk in stream:
                     delta = chunk.choices[0].delta.content if chunk.choices else None

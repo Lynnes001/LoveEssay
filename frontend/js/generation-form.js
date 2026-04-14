@@ -1,12 +1,6 @@
-const STAGES = ["extraction", "draft", "rewrite"];
+import { switchStage } from "/js/utils.js";
 
-function toTitleCase(stage) {
-  if (!stage) {
-    return "Idle";
-  }
-
-  return stage.charAt(0).toUpperCase() + stage.slice(1);
-}
+const STAGES = ["extraction", "outline_draft", "draft", "finetuned", "fact_check", "repair"];
 
 function parseStatusState(statusText) {
   return statusText.split(" · ")[0];
@@ -20,6 +14,7 @@ export function initializeGenerationForm({
   taskStage,
   outputTitle,
   extractionOutput,
+  outlineDraftOutput,
   draftOutput,
   rewriteOutput,
   stageButtons = [],
@@ -28,12 +23,16 @@ export function initializeGenerationForm({
   createGenerationTask,
   fetchTask,
   openTaskStream,
+  onSessionCreated,
+  onOutlineDraftComplete,
+  onGenerationDone,
 }) {
   let activeSource = null;
   let selectedStage = "extraction";
-  const defaultButtonLabel = submitButton?.textContent ?? "开始生成";
+  const defaultButtonLabel = submitButton?.textContent ?? "生成 Outline";
   const outputNodes = {
     extraction: extractionOutput,
+    outline_draft: outlineDraftOutput,
     draft: draftOutput,
     rewrite: rewriteOutput,
   };
@@ -82,25 +81,11 @@ export function initializeGenerationForm({
     }
 
     selectedStage = stage;
-
-    stageButtons.forEach((button) => {
-      const isSelected = button.dataset.stage === stage;
-      button.classList?.toggle?.("is-selected", isSelected);
-      button.setAttribute?.("aria-pressed", String(isSelected));
-    });
-
-    stagePanels.forEach((panel) => {
-      panel.hidden = panel.dataset.stagePanel !== stage;
-    });
-
-    if (outputTitle) {
-      outputTitle.textContent = toTitleCase(stage);
-    }
+    switchStage(stage, stageButtons, stagePanels, outputTitle);
   }
-
   function clearOutputs() {
     Object.values(outputNodes).forEach((node) => {
-      node.textContent = "";
+      if (node) node.textContent = "";
     });
   }
 
@@ -148,6 +133,8 @@ export function initializeGenerationForm({
       const payload = Object.fromEntries(new FormData(form).entries());
       const result = await createGenerationTask(payload);
 
+      onSessionCreated?.(result.session_id);
+
       clearOutputs();
       taskMeta.textContent = `task #${result.task_id} / session #${result.session_id}`;
       setTaskStatusLabel("pending");
@@ -181,6 +168,11 @@ export function initializeGenerationForm({
           setTaskStageLabel(message.stage);
           focusStage(message.stage);
         },
+        onStageComplete: (message) => {
+          if (message.stage === "outline_draft" && message.outline_id) {
+            onOutlineDraftComplete?.(result.session_id);
+          }
+        },
         onError: (message) => {
           setTaskStatusLabel(`failed · ${message.message}`);
           const failedStage = taskStage.textContent !== "idle" ? taskStage.textContent : selectedStage;
@@ -193,24 +185,16 @@ export function initializeGenerationForm({
         onTransportError: () => {
           setTaskStatusLabel("reconnecting");
         },
-        onDone: async () => {
+        onDone: async (_doneMsg) => {
           setTaskStatusLabel("done");
-          setTaskStageLabel("rewrite");
+          setTaskStageLabel("outline_draft");
           STAGES.forEach((stage) => {
             const hasContent = outputNodes[stage]?.textContent;
             setStageState(stage, hasContent ? "done" : stageStatusNodes[stage]?.textContent || "idle");
           });
-          try {
-            const task = await fetchTask(result.task_id);
-            const finalDocument = task.documents.find((document) => document.stage === "rewrite");
-            if (finalDocument) {
-              rewriteOutput.textContent = finalDocument.content;
-            }
-          } finally {
-            focusStage("rewrite");
-            setSubmissionState(false);
-            closeStream();
-          }
+          setSubmissionState(false);
+          closeStream();
+          onGenerationDone?.();
         },
       });
     } catch (error) {
@@ -221,3 +205,4 @@ export function initializeGenerationForm({
     }
   });
 }
+

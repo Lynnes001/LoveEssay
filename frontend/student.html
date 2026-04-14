@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AdmissionCraft — Students</title>
+    <link rel="stylesheet" href="/css/base.css" />
+    <style>
+      .page-shell {
+        width: min(960px, calc(100% - 32px));
+        margin: 32px auto;
+      }
+      .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+        gap: 16px;
+      }
+      .page-header h1 { margin: 0; font-size: 1.5rem; }
+      .page-header .eyebrow { margin: 0 0 4px; }
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 16px;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 0.9rem;
+      }
+      .btn-primary:hover { opacity: 0.9; }
+      .btn-secondary {
+        background: var(--panel);
+        color: var(--ink);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 8px 16px;
+        cursor: pointer;
+        font-size: 0.9rem;
+      }
+      .btn-secondary:hover { background: var(--panel-subtle); }
+      .student-list { list-style: none; padding: 0; margin: 0; }
+      .student-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 18px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        margin-bottom: 8px;
+        background: var(--panel);
+        cursor: pointer;
+        transition: background 0.1s;
+      }
+      .student-item:hover { background: var(--panel-subtle); }
+      .student-item__name { font-weight: 600; font-size: 0.95rem; }
+      .student-item__meta { font-size: 0.82rem; color: var(--muted); margin-top: 2px; }
+      .student-item__actions { display: flex; gap: 8px; }
+      .students-empty { color: var(--muted); font-size: 0.9rem; padding: 32px 0; text-align: center; }
+      /* Modal */
+      .modal-overlay {
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.45);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 100;
+      }
+      .modal-box {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 28px 32px;
+        width: min(560px, calc(100% - 32px));
+        max-height: 90vh;
+        overflow-y: auto;
+      }
+      .modal-box h2 { margin: 0 0 20px; font-size: 1.1rem; }
+      .modal-form label { display: block; margin-bottom: 14px; }
+      .modal-form label span { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 4px; }
+      .modal-form input,
+      .modal-form textarea {
+        width: 100%; box-sizing: border-box;
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        font-size: 0.9rem;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: inherit;
+      }
+      .modal-form textarea { resize: vertical; }
+      .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+      .modal-error { color: #c0392b; font-size: 0.83rem; margin-top: 8px; min-height: 1.2em; }
+      /* Nav */
+      .site-nav {
+        display: flex; align-items: center; gap: 16px;
+        padding: 10px 20px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--line);
+        position: sticky; top: 0; z-index: 10;
+      }
+      .site-nav__brand { font-weight: 700; color: var(--accent); text-decoration: none; font-size: 1rem; }
+      .site-nav__links { display: flex; gap: 12px; }
+      .site-nav__links a { font-size: 0.87rem; color: var(--muted); text-decoration: none; }
+      .site-nav__links a:hover, .site-nav__links a.active { color: var(--ink); font-weight: 500; }
+      .nav-bar__spacer { flex: 1; }
+    </style>
+  </head>
+  <body>
+    <nav class="site-nav">
+      <a class="site-nav__brand" href="/index.html">AdmissionCraft</a>
+      <div class="site-nav__links">
+        <a href="/index.html">Sessions</a>
+        <a href="/student.html" class="active">Students</a>
+      </div>
+      <span class="nav-bar__spacer"></span>
+      <button id="logout-btn" class="nav-logout-btn" type="button">登出</button>
+    </nav>
+
+    <div class="page-shell">
+      <div class="page-header">
+        <div>
+          <p class="eyebrow">Student Management</p>
+          <h1>学生列表</h1>
+        </div>
+        <button class="btn-primary" id="new-student-btn">+ 新建学生</button>
+      </div>
+
+      <ul class="student-list" id="student-list">
+        <li class="students-empty">加载中...</li>
+      </ul>
+    </div>
+
+    <!-- Create / Edit Modal -->
+    <div class="modal-overlay" id="student-modal" hidden>
+      <div class="modal-box">
+        <h2 id="student-modal-title">新建学生</h2>
+        <div class="modal-form">
+          <label>
+            <span>姓名 *</span>
+            <input type="text" id="student-name" placeholder="学生姓名" />
+          </label>
+          <label>
+            <span>邮箱</span>
+            <input type="email" id="student-email" placeholder="student@example.com" />
+          </label>
+          <label>
+            <span>学生背景 (profile_json)</span>
+            <textarea id="student-profile" rows="10" placeholder='{"background": "...", "gpa": "3.9", ...}'></textarea>
+          </label>
+        </div>
+        <p class="modal-error" id="student-modal-error"></p>
+        <div class="modal-actions">
+          <button class="btn-secondary" id="student-modal-cancel">取消</button>
+          <button class="btn-primary" id="student-modal-submit">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/js/student.js"></script>
+  </body>
+</html>

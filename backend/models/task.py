@@ -14,6 +14,8 @@ class GenerationTask(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     session_id: Mapped[int] = mapped_column(ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
+    # phase: outline | draft | finetune | fact_check | repair
+    phase: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     current_stage: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     error_msg: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

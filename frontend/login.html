@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AdmissionCraft — 登录</title>
+    <link rel="stylesheet" href="/css/base.css" />
+    <style>
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        margin: 0;
+        background: var(--bg);
+      }
+      .login-shell {
+        width: min(400px, calc(100% - 32px));
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 40px 36px;
+      }
+      .login-shell h1 {
+        margin: 0 0 8px;
+        font-size: 1.4rem;
+        color: var(--accent);
+      }
+      .login-shell .tagline {
+        margin: 0 0 28px;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      .login-form label {
+        display: block;
+        margin-bottom: 14px;
+      }
+      .login-form label span {
+        display: block;
+        font-size: 0.82rem;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      .login-form input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 9px 12px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        font-size: 0.95rem;
+        background: var(--bg);
+        color: var(--ink);
+      }
+      .login-form input:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+      .login-submit {
+        width: 100%;
+        margin-top: 8px;
+        padding: 10px;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .login-submit:hover { opacity: 0.9; }
+      .login-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+      .login-error {
+        margin: 12px 0 0;
+        font-size: 0.85rem;
+        color: #c0392b;
+        min-height: 1.2em;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-shell">
+      <h1>AdmissionCraft</h1>
+      <p class="tagline">留学文书 AI 工作台</p>
+      <form class="login-form" id="login-form">
+        <label>
+          <span>用户名</span>
+          <input id="username" type="text" autocomplete="username" />
+        </label>
+        <label>
+          <span>密码</span>
+          <input id="password" type="password" autocomplete="current-password" />
+        </label>
+        <button class="login-submit" id="login-submit" type="submit">登录</button>
+        <p class="login-error" id="login-error"></p>
+      </form>
+    </div>
+    <script type="module" src="/js/login.js"></script>
+  </body>
+</html>
