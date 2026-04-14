@@ -17,3 +17,4 @@ temp/
 node_modules
 nginx/.htpasswd
 .playwright-cli
+.playwright-mcp/*
