@@ -86,10 +86,26 @@ redis_image="${REDIS_IMAGE:-redis:7}"
 nginx_image="${NGINX_IMAGE:-nginx:1.27-alpine}"
 
 if [ -n "$service_image_repo_prefix" ]; then
-  postgres_image="${POSTGRES_IMAGE:-${service_image_repo_prefix}/postgres:16}"
-  redis_image="${REDIS_IMAGE:-${service_image_repo_prefix}/redis:7}"
-  nginx_image="${NGINX_IMAGE:-${service_image_repo_prefix}/nginx:1.27-alpine}"
+  if [ -z "${POSTGRES_IMAGE:-}" ] || [ "${POSTGRES_IMAGE:-}" = "postgres:16" ]; then
+    postgres_image="${service_image_repo_prefix}/postgres:16"
+  fi
+
+  if [ -z "${REDIS_IMAGE:-}" ] || [ "${REDIS_IMAGE:-}" = "redis:7" ]; then
+    redis_image="${service_image_repo_prefix}/redis:7"
+  fi
+
+  if [ -z "${NGINX_IMAGE:-}" ] || [ "${NGINX_IMAGE:-}" = "nginx:1.27-alpine" ]; then
+    nginx_image="${service_image_repo_prefix}/nginx:1.27-alpine"
+  fi
 fi
+
+export POSTGRES_IMAGE="$postgres_image"
+export REDIS_IMAGE="$redis_image"
+export NGINX_IMAGE="$nginx_image"
+
+log "Using postgres image: ${POSTGRES_IMAGE}"
+log "Using redis image: ${REDIS_IMAGE}"
+log "Using nginx image: ${NGINX_IMAGE}"
 
 log "Writing .env for the deployment"
 cat > .env <<EOF
@@ -108,9 +124,9 @@ POSTGRES_HOST=postgres
 REDIS_HOST=redis
 DATABASE_URL=postgresql+psycopg://loveessay:loveessay@postgres:5432/loveessay
 REDIS_URL=redis://redis:6379/0
-POSTGRES_IMAGE=${postgres_image}
-REDIS_IMAGE=${redis_image}
-NGINX_IMAGE=${nginx_image}
+POSTGRES_IMAGE=${POSTGRES_IMAGE}
+REDIS_IMAGE=${REDIS_IMAGE}
+NGINX_IMAGE=${NGINX_IMAGE}
 APP_IMAGE=${APP_IMAGE}
 EOF
 
