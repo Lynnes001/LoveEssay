@@ -20,6 +20,31 @@ dump_compose_state() {
   docker compose logs --no-color --tail=200 postgres redis web worker nginx || true
 }
 
+compose() {
+  COMPOSE_PARALLEL_LIMIT=1 COMPOSE_PROGRESS=plain docker compose "$@"
+}
+
+pull_service_with_retry() {
+  local service="$1"
+  local attempts="${2:-4}"
+  local delay=10
+
+  for attempt in $(seq 1 "$attempts"); do
+    log "Pulling ${service} image (attempt ${attempt}/${attempts})"
+    if compose pull "$service"; then
+      return 0
+    fi
+
+    if [ "$attempt" -lt "$attempts" ]; then
+      log "Pull failed for ${service}; retrying in ${delay}s"
+      sleep "$delay"
+      delay=$((delay * 2))
+    fi
+  done
+
+  die "Failed to pull ${service} image after ${attempts} attempts."
+}
+
 repo_dir="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_dir"
 
@@ -38,16 +63,16 @@ cd "$deploy_dir"
 
 trap 'status=$?; log "Deployment failed at line ${LINENO} with exit code ${status}."; dump_compose_state; exit "$status"' ERR
 
-# Log in to Aliyun Container Registry so Docker can pull private images
-if [ -n "${ACR_USERNAME:-}" ] && [ -n "${ACR_PASSWORD:-}" ] && [ -n "${POSTGRES_IMAGE:-}" ]; then
-  acr_registry="$(printf '%s' "${POSTGRES_IMAGE}" | cut -d/ -f1)"
-  log "Logging in to ACR (${acr_registry})"
-  echo "${ACR_PASSWORD}" | docker login "${acr_registry}" -u "${ACR_USERNAME}" --password-stdin
-fi
-
 [ -n "${APP_IMAGE:-}" ] || die "APP_IMAGE must be set."
 [ -n "${APP_LOGIN_USER:-}" ] || die "APP_LOGIN_USER must be set."
 [ -n "${APP_LOGIN_PASS:-}" ] || die "APP_LOGIN_PASS must be set."
+
+# Log in to Aliyun Container Registry so Docker can pull private images.
+if [ -n "${ACR_USERNAME:-}" ] && [ -n "${ACR_PASSWORD:-}" ]; then
+  acr_registry="$(printf '%s' "${APP_IMAGE}" | cut -d/ -f1)"
+  log "Logging in to ACR (${acr_registry})"
+  echo "${ACR_PASSWORD}" | docker login "${acr_registry}" -u "${ACR_USERNAME}" --password-stdin
+fi
 
 log "Deploying app image: ${APP_IMAGE}"
 
@@ -74,14 +99,17 @@ NGINX_IMAGE=${NGINX_IMAGE:-docker.1ms.run/nginx:1.27-alpine}
 APP_IMAGE=${APP_IMAGE}
 EOF
 
-log "Resetting database volume for a clean slate"
-docker compose down -v --remove-orphans || true
-
 log "Pulling deployment images"
-COMPOSE_PROGRESS=plain docker compose pull
+pull_service_with_retry web
+pull_service_with_retry postgres
+pull_service_with_retry redis
+pull_service_with_retry nginx
+
+log "Resetting database volume for a clean slate"
+compose down -v --remove-orphans || true
 
 log "Bringing the stack up"
-COMPOSE_PROGRESS=plain docker compose up -d --remove-orphans
+compose up -d --remove-orphans --no-build
 
 log "Waiting for the database to become ready"
 db_ready=0
