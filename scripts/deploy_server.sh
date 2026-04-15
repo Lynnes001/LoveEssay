@@ -58,9 +58,9 @@ POSTGRES_HOST=postgres
 REDIS_HOST=redis
 DATABASE_URL=postgresql+psycopg://loveessay:loveessay@postgres:5432/loveessay
 REDIS_URL=redis://redis:6379/0
-POSTGRES_IMAGE=${POSTGRES_IMAGE:-postgres:16}
-REDIS_IMAGE=${REDIS_IMAGE:-redis:7}
-NGINX_IMAGE=${NGINX_IMAGE:-nginx:1.27-alpine}
+POSTGRES_IMAGE=${POSTGRES_IMAGE:-docker.1ms.run/postgres:16}
+REDIS_IMAGE=${REDIS_IMAGE:-docker.1ms.run/redis:7}
+NGINX_IMAGE=${NGINX_IMAGE:-docker.1ms.run/nginx:1.27-alpine}
 EOF
 
 log "Bringing the stack up"
