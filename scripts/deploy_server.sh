@@ -76,6 +76,21 @@ fi
 
 log "Deploying app image: ${APP_IMAGE}"
 
+service_image_repo_prefix="${SERVICE_IMAGE_REPO_PREFIX:-}"
+if [ -z "$service_image_repo_prefix" ] && [[ "$APP_IMAGE" == */* ]]; then
+  service_image_repo_prefix="${APP_IMAGE%/*}"
+fi
+
+postgres_image="${POSTGRES_IMAGE:-postgres:16}"
+redis_image="${REDIS_IMAGE:-redis:7}"
+nginx_image="${NGINX_IMAGE:-nginx:1.27-alpine}"
+
+if [ -n "$service_image_repo_prefix" ]; then
+  postgres_image="${POSTGRES_IMAGE:-${service_image_repo_prefix}/postgres:16}"
+  redis_image="${REDIS_IMAGE:-${service_image_repo_prefix}/redis:7}"
+  nginx_image="${NGINX_IMAGE:-${service_image_repo_prefix}/nginx:1.27-alpine}"
+fi
+
 log "Writing .env for the deployment"
 cat > .env <<EOF
 PORT=8000
@@ -93,9 +108,9 @@ POSTGRES_HOST=postgres
 REDIS_HOST=redis
 DATABASE_URL=postgresql+psycopg://loveessay:loveessay@postgres:5432/loveessay
 REDIS_URL=redis://redis:6379/0
-POSTGRES_IMAGE=${POSTGRES_IMAGE:-postgres:16}
-REDIS_IMAGE=${REDIS_IMAGE:-redis:7}
-NGINX_IMAGE=${NGINX_IMAGE:-nginx:1.27-alpine}
+POSTGRES_IMAGE=${postgres_image}
+REDIS_IMAGE=${redis_image}
+NGINX_IMAGE=${nginx_image}
 APP_IMAGE=${APP_IMAGE}
 EOF
 

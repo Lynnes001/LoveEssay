@@ -38,6 +38,27 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Mirror service images to ACR
+        env:
+          APP_IMAGE_REPO: ${{ vars.APP_IMAGE_REPO }}
+          SERVICE_IMAGE_REPO_PREFIX: ${{ vars.SERVICE_IMAGE_REPO_PREFIX }}
+        run: |
+          set -euo pipefail
+
+          repo_prefix="${SERVICE_IMAGE_REPO_PREFIX:-${APP_IMAGE_REPO%/*}}"
+
+          docker pull postgres:16
+          docker tag postgres:16 "${repo_prefix}/postgres:16"
+          docker push "${repo_prefix}/postgres:16"
+
+          docker pull redis:7
+          docker tag redis:7 "${repo_prefix}/redis:7"
+          docker push "${repo_prefix}/redis:7"
+
+          docker pull nginx:1.27-alpine
+          docker tag nginx:1.27-alpine "${repo_prefix}/nginx:1.27-alpine"
+          docker push "${repo_prefix}/nginx:1.27-alpine"
+
       - name: Prepare deploy directory on ECS
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -74,6 +95,7 @@ jobs:
           DEPLOY_HOST_PORT: ${{ vars.DEPLOY_HOST_PORT }}
           ACR_USERNAME: ${{ vars.ACR_USERNAME }}
           ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+          SERVICE_IMAGE_REPO_PREFIX: ${{ vars.SERVICE_IMAGE_REPO_PREFIX }}
           POSTGRES_IMAGE: ${{ vars.POSTGRES_IMAGE }}
           REDIS_IMAGE: ${{ vars.REDIS_IMAGE }}
           NGINX_IMAGE: ${{ vars.NGINX_IMAGE }}
@@ -83,7 +105,7 @@ jobs:
           key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
           port: 22
           command_timeout: 25m
-          envs: APP_IMAGE,APP_LOGIN_USER,APP_LOGIN_PASS,DRAFT_MODEL_API_KEY,DRAFT_MODEL_BASE_URL,DRAFT_MODEL_NAME,POLISH_MODEL_API_KEY,POLISH_MODEL_BASE_URL,POLISH_MODEL_NAME,DEPLOY_HOST_PORT,ACR_USERNAME,ACR_PASSWORD,POSTGRES_IMAGE,REDIS_IMAGE,NGINX_IMAGE
+          envs: APP_IMAGE,APP_LOGIN_USER,APP_LOGIN_PASS,DRAFT_MODEL_API_KEY,DRAFT_MODEL_BASE_URL,DRAFT_MODEL_NAME,POLISH_MODEL_API_KEY,POLISH_MODEL_BASE_URL,POLISH_MODEL_NAME,DEPLOY_HOST_PORT,ACR_USERNAME,ACR_PASSWORD,SERVICE_IMAGE_REPO_PREFIX,POSTGRES_IMAGE,REDIS_IMAGE,NGINX_IMAGE
           script: |
             set -euo pipefail
             cd /opt/admissioncraft
