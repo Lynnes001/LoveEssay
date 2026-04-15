@@ -15,6 +15,11 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"
 }
 
+dump_compose_state() {
+  docker compose ps || true
+  docker compose logs --no-color --tail=200 postgres redis web worker nginx || true
+}
+
 repo_dir="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_dir"
 
@@ -31,6 +36,8 @@ public_base_url="http://127.0.0.1:${deploy_host_port}"
 
 cd "$deploy_dir"
 
+trap 'status=$?; log "Deployment failed at line ${LINENO} with exit code ${status}."; dump_compose_state; exit "$status"' ERR
+
 # Log in to Aliyun Container Registry so Docker can pull private images
 if [ -n "${ACR_USERNAME:-}" ] && [ -n "${ACR_PASSWORD:-}" ] && [ -n "${POSTGRES_IMAGE:-}" ]; then
   acr_registry="$(printf '%s' "${POSTGRES_IMAGE}" | cut -d/ -f1)"
@@ -41,6 +48,8 @@ fi
 [ -n "${APP_IMAGE:-}" ] || die "APP_IMAGE must be set."
 [ -n "${APP_LOGIN_USER:-}" ] || die "APP_LOGIN_USER must be set."
 [ -n "${APP_LOGIN_PASS:-}" ] || die "APP_LOGIN_PASS must be set."
+
+log "Deploying app image: ${APP_IMAGE}"
 
 log "Writing .env for the deployment"
 cat > .env <<EOF
@@ -68,8 +77,11 @@ EOF
 log "Resetting database volume for a clean slate"
 docker compose down -v --remove-orphans || true
 
+log "Pulling deployment images"
+COMPOSE_PROGRESS=plain docker compose pull
+
 log "Bringing the stack up"
-docker compose pull && docker compose up -d --remove-orphans
+COMPOSE_PROGRESS=plain docker compose up -d --remove-orphans
 
 log "Waiting for the database to become ready"
 db_ready=0
@@ -82,15 +94,13 @@ for _ in $(seq 1 30); do
 done
 
 if [ "$db_ready" -ne 1 ]; then
-  docker compose ps || true
-  docker compose logs --no-color --tail=200 postgres redis web nginx || true
+  dump_compose_state
   die "Database did not become ready in time."
 fi
 
 log "Running database migrations"
 if ! docker compose exec -T web python -m alembic upgrade head; then
-  docker compose ps || true
-  docker compose logs --no-color --tail=200 web postgres redis nginx || true
+  dump_compose_state
   die "Database migrations failed."
 fi
 
@@ -106,8 +116,7 @@ for _ in $(seq 1 30); do
 done
 
 if [ "$health_ready" -ne 1 ]; then
-  docker compose ps || true
-  docker compose logs --no-color --tail=200 web postgres redis nginx || true
+  dump_compose_state
   die "Health check failed for ${health_url}."
 fi
 
