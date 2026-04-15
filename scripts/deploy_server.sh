@@ -99,14 +99,14 @@ NGINX_IMAGE=${NGINX_IMAGE:-docker.1ms.run/nginx:1.27-alpine}
 APP_IMAGE=${APP_IMAGE}
 EOF
 
+log "Resetting database volume for a clean slate"
+compose down -v --remove-orphans || true
+
 log "Pulling deployment images"
 pull_service_with_retry web
 pull_service_with_retry postgres
 pull_service_with_retry redis
 pull_service_with_retry nginx
-
-log "Resetting database volume for a clean slate"
-compose down -v --remove-orphans || true
 
 log "Bringing the stack up"
 compose up -d --remove-orphans --no-build
