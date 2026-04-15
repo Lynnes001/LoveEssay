@@ -1,4 +1,4 @@
-import { confirmOutline, getOutline, patchOutline } from "/js/api.js";
+import { confirmOutline, getOutline, getSession, patchOutline } from "/js/api.js";
 
 /**
  * Manages the outline confirmation panel (Step 2).
@@ -74,7 +74,16 @@ export function initializeOutlinePanel({
     return data;
   }
 
-  function renderOutline(data) {
+  function resolveEvidenceRef(id, profile) {
+    if (!profile) return null;
+    const m = id.match(/^(exp|ach)_(\d+)$/);
+    if (!m) return null;
+    const list = m[1] === "exp" ? profile.experiences : profile.achievements;
+    const item = list?.[parseInt(m[2], 10) - 1];
+    return item || null;
+  }
+
+  function renderOutline(data, profile) {
     currentOutlineData = data;
 
     if (thesisEl) thesisEl.value = data.thesis || "";
@@ -88,6 +97,15 @@ export function initializeOutlinePanel({
     if (sectionsEl) {
       sectionsEl.innerHTML = "";
       (data.sections || []).forEach((sec, idx) => {
+        const refsHtml = (sec.evidence_refs || []).map((id) => {
+          const item = resolveEvidenceRef(id, profile);
+          if (item) {
+            const detail = item.detail ? `：${item.detail}` : "";
+            return `<li><span style="font-weight:500;">${item.title}</span><span style="color:var(--muted);">${detail}</span></li>`;
+          }
+          return `<li style="color:var(--muted);">${id}</li>`;
+        }).join("");
+
         const wrapper = document.createElement("div");
         wrapper.className = "outline-section-item";
         wrapper.innerHTML = `
@@ -95,9 +113,9 @@ export function initializeOutlinePanel({
           <label style="gap:4px;">
             <textarea data-section-id="${sec.id}" rows="2">${sec.claim || ""}</textarea>
           </label>
-          <p class="outline-section-refs" style="margin:4px 0 0;font-size:0.8rem;color:var(--muted);">
-            证据引用: ${(sec.evidence_refs || []).join(", ") || "—"}
-          </p>
+          <ul class="outline-section-refs" style="margin:4px 0 0;padding-left:1.2em;font-size:0.8rem;list-style:disc;">
+            ${refsHtml || '<li style="color:var(--muted);">—</li>'}
+          </ul>
         `;
         sectionsEl.appendChild(wrapper);
       });
@@ -112,8 +130,12 @@ export function initializeOutlinePanel({
   async function loadOutline(sessionId) {
     setStatus("加载中...");
     try {
-      const outline = await getOutline(sessionId);
-      renderOutline(outline.data);
+      const [outline, session] = await Promise.all([
+        getOutline(sessionId),
+        getSession(sessionId),
+      ]);
+      const profile = session?.prompt_payload_json?.profile ?? null;
+      renderOutline(outline.data, profile);
       show();
       setStatus("Outline 已加载，可以编辑。");
     } catch (err) {

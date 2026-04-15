@@ -18,8 +18,9 @@ Variables:
 2. 使用中文填写所有文字字段（thesis、claim、direction 等）。
 3. sections 数量必须为 2 到 3 个。
 4. 每个 section 的 evidence_refs 必须引用 profile 中真实存在的 experiences 或 achievements 的 id（格式：exp_{index} 或 ach_{index}，下标从 1 开始）。
-5. must_avoid 中必须包含"编造学校细节"和"空泛拔高"。
-6. target_language 留空（null），由用户在确认阶段指定。
+5. evidence 选取以论证流畅、支撑论点为准，不必覆盖全部 experiences/achievements，选最合适的即可。
+6. must_avoid 中必须包含"编造学校细节"和"空泛拔高"。
+7. target_language 留空（null），由用户在确认阶段指定。
 
 输出 JSON 结构如下：
 {

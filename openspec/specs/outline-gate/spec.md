@@ -12,7 +12,7 @@ The system SHALL execute an outline_draft stage after extraction, producing an o
 - **THEN** the system MUST set the task status to `failed`, store the error message, and NOT advance the session workflow_status
 
 ### Requirement: Outline read and edit
-The system SHALL provide an API for reading and editing the current outline_candidate for a session.
+The system SHALL provide an API and UI for reading and editing the current outline_candidate for a session. The frontend MUST resolve `evidence_refs` IDs against the session profile and display the corresponding experience/achievement title and detail inline within each section, so users can review which source material is being referenced without consulting the raw profile separately.
 
 #### Scenario: Read current outline
 - **WHEN** `GET /api/sessions/{id}/outline` is called and an outline exists for the session
@@ -25,6 +25,14 @@ The system SHALL provide an API for reading and editing the current outline_cand
 #### Scenario: Outline not yet generated
 - **WHEN** `GET /api/sessions/{id}/outline` is called and no outline exists for the session
 - **THEN** the system MUST return 404
+
+#### Scenario: Evidence refs resolved in frontend
+- **WHEN** the outline panel renders a section with `evidence_refs`
+- **THEN** the frontend MUST display each referenced experience or achievement's title and detail inline, not just the ID string
+
+#### Scenario: Evidence refs resolve fails gracefully
+- **WHEN** a `evidence_refs` ID cannot be found in the session profile (e.g., profile not yet available)
+- **THEN** the frontend MUST fall back to displaying the raw ID string without error
 
 ### Requirement: Outline confirmation gate
 The system SHALL require explicit user confirmation of the outline before draft generation is permitted. The sessions.workflow_status state machine is extended to include fact_check and repair states.
@@ -55,3 +63,10 @@ The system SHALL execute draft and rewrite stages using the confirmed outline as
 #### Scenario: Session workflow status advances after draft completes
 - **WHEN** the draft pipeline completes successfully
 - **THEN** the system MUST set sessions.workflow_status to `draft_completed`
+
+### Requirement: Outline draft uses selective evidence
+The outline_draft prompt SHALL instruct the AI to select evidence based on what best supports each claim, and explicitly state that not all experiences or achievements need to be referenced.
+
+#### Scenario: Prompt allows partial evidence selection
+- **WHEN** the outline_draft prompt is rendered
+- **THEN** it MUST include a rule stating that evidence selection should prioritize narrative coherence over coverage of all available materials
