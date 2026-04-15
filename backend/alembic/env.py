@@ -5,7 +5,7 @@ from sqlalchemy import engine_from_config, pool
 
 from config import get_settings
 from db import Base
-from models import document, session, task  # noqa: F401
+import models  # noqa: F401  # registers all ORM classes with Base.metadata
 
 config = context.config
 config.set_main_option("sqlalchemy.url", get_settings().database_url)
