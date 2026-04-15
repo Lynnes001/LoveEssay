@@ -65,6 +65,9 @@ NGINX_IMAGE=${NGINX_IMAGE:-docker.1ms.run/nginx:1.27-alpine}
 APP_IMAGE=${APP_IMAGE}
 EOF
 
+log "Resetting database volume for a clean slate"
+docker compose down -v --remove-orphans || true
+
 log "Bringing the stack up"
 docker compose pull && docker compose up -d --remove-orphans
 
