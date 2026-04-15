@@ -1,6 +1,9 @@
 services:
   web:
-    image: ${APP_IMAGE}
+    image: ${APP_IMAGE:-loveessay-app:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
     env_file:
       - .env
     environment:
@@ -13,7 +16,10 @@ services:
         condition: service_started
 
   worker:
-    image: ${APP_IMAGE}
+    image: ${APP_IMAGE:-loveessay-app:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
     env_file:
       - .env
     command: celery -A tasks.celery_app.celery_app worker --loglevel=info --concurrency=${WORKER_CONCURRENCY:-4} --prefetch-multiplier=${WORKER_PREFETCH_MULTIPLIER:-1}
