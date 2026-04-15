@@ -43,28 +43,26 @@ jobs:
       - name: Deploy on ECS
         uses: appleboy/ssh-action@v1.0.3
         env:
-          BASIC_AUTH_USER: ${{ vars.BASIC_AUTH_USER }}
-          BASIC_AUTH_PASS: ${{ secrets.BASIC_AUTH_PASS }}
+          APP_LOGIN_USER: ${{ vars.APP_LOGIN_USER }}
+          APP_LOGIN_PASS: ${{ secrets.APP_LOGIN_PASS }}
           DRAFT_MODEL_API_KEY: ${{ secrets.DRAFT_MODEL_API_KEY }}
+          DRAFT_MODEL_BASE_URL: ${{ vars.DRAFT_MODEL_BASE_URL }}
+          DRAFT_MODEL_NAME: ${{ vars.DRAFT_MODEL_NAME }}
           POLISH_MODEL_API_KEY: ${{ secrets.POLISH_MODEL_API_KEY }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB: ${{ vars.POSTGRES_DB }}
-          POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+          POLISH_MODEL_BASE_URL: ${{ vars.POLISH_MODEL_BASE_URL }}
+          POLISH_MODEL_NAME: ${{ vars.POLISH_MODEL_NAME }}
           DEPLOY_HOST_PORT: ${{ vars.DEPLOY_HOST_PORT }}
           ACR_USERNAME: ${{ vars.ACR_USERNAME }}
           ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
           POSTGRES_IMAGE: ${{ vars.POSTGRES_IMAGE }}
           REDIS_IMAGE: ${{ vars.REDIS_IMAGE }}
           NGINX_IMAGE: ${{ vars.NGINX_IMAGE }}
-          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-          LANGSMITH_PROJECT: ${{ vars.LANGSMITH_PROJECT }}
-          LANGSMITH_TRACING: ${{ vars.LANGSMITH_TRACING }}
         with:
           host: ${{ secrets.ALIYUN_HOST }}
           username: ${{ vars.ALIYUN_USER }}
           key: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
           port: 22
-          envs: BASIC_AUTH_USER,BASIC_AUTH_PASS,DRAFT_MODEL_API_KEY,POLISH_MODEL_API_KEY,POSTGRES_PASSWORD,POSTGRES_DB,POSTGRES_USER,DEPLOY_HOST_PORT,ACR_USERNAME,ACR_PASSWORD,POSTGRES_IMAGE,REDIS_IMAGE,NGINX_IMAGE,LANGSMITH_API_KEY,LANGSMITH_PROJECT,LANGSMITH_TRACING
+          envs: APP_LOGIN_USER,APP_LOGIN_PASS,DRAFT_MODEL_API_KEY,DRAFT_MODEL_BASE_URL,DRAFT_MODEL_NAME,POLISH_MODEL_API_KEY,POLISH_MODEL_BASE_URL,POLISH_MODEL_NAME,DEPLOY_HOST_PORT,ACR_USERNAME,ACR_PASSWORD,POSTGRES_IMAGE,REDIS_IMAGE,NGINX_IMAGE
           script: |
             set -euo pipefail
             cd /opt/admissioncraft

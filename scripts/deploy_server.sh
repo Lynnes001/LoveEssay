@@ -26,8 +26,6 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 
 deploy_host_port="${DEPLOY_HOST_PORT:-8000}"
-postgres_db="${POSTGRES_DB:-loveessay}"
-postgres_user="${POSTGRES_USER:-loveessay}"
 deploy_dir="${DEPLOY_DIR:-/opt/admissioncraft}"
 public_base_url="http://127.0.0.1:${deploy_host_port}"
 
@@ -40,32 +38,26 @@ if [ -n "${ACR_USERNAME:-}" ] && [ -n "${ACR_PASSWORD:-}" ] && [ -n "${POSTGRES_
   echo "${ACR_PASSWORD}" | docker login "${acr_registry}" -u "${ACR_USERNAME}" --password-stdin
 fi
 
-log "Writing .htpasswd for nginx basic auth"
-if [ -n "${BASIC_AUTH_USER:-}" ] && [ -n "${BASIC_AUTH_PASS:-}" ]; then
-  # openssl passwd -apr1 produces an Apache-compatible MD5 hash
-  hashed="$(openssl passwd -apr1 "${BASIC_AUTH_PASS}")"
-  printf '%s:%s\n' "${BASIC_AUTH_USER}" "${hashed}" > nginx/.htpasswd
-else
-  die "BASIC_AUTH_USER and BASIC_AUTH_PASS must be set."
-fi
+[ -n "${APP_LOGIN_USER:-}" ] || die "APP_LOGIN_USER must be set."
+[ -n "${APP_LOGIN_PASS:-}" ] || die "APP_LOGIN_PASS must be set."
 
 log "Writing .env for the deployment"
 cat > .env <<EOF
 PORT=8000
 HOST_PORT=${deploy_host_port}
 PUBLIC_BASE_URL=${public_base_url}
-DRAFT_MODEL_API_KEY=${DRAFT_MODEL_API_KEY}
-POLISH_MODEL_API_KEY=${POLISH_MODEL_API_KEY}
-POSTGRES_DB=${postgres_db}
-POSTGRES_USER=${postgres_user}
-POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+APP_LOGIN_USER=${APP_LOGIN_USER}
+APP_LOGIN_PASS=${APP_LOGIN_PASS}
+DRAFT_MODEL_API_KEY=${DRAFT_MODEL_API_KEY:-}
+DRAFT_MODEL_BASE_URL=${DRAFT_MODEL_BASE_URL:-}
+DRAFT_MODEL_NAME=${DRAFT_MODEL_NAME:-}
+POLISH_MODEL_API_KEY=${POLISH_MODEL_API_KEY:-}
+POLISH_MODEL_BASE_URL=${POLISH_MODEL_BASE_URL:-}
+POLISH_MODEL_NAME=${POLISH_MODEL_NAME:-}
 POSTGRES_HOST=postgres
 REDIS_HOST=redis
-DATABASE_URL=postgresql+psycopg://${postgres_user}:${POSTGRES_PASSWORD}@postgres:5432/${postgres_db}
+DATABASE_URL=postgresql+psycopg://loveessay:loveessay@postgres:5432/loveessay
 REDIS_URL=redis://redis:6379/0
-LANGSMITH_API_KEY=${LANGSMITH_API_KEY:-}
-LANGSMITH_PROJECT=${LANGSMITH_PROJECT:-}
-LANGSMITH_TRACING=${LANGSMITH_TRACING:-false}
 POSTGRES_IMAGE=${POSTGRES_IMAGE:-postgres:16}
 REDIS_IMAGE=${REDIS_IMAGE:-redis:7}
 NGINX_IMAGE=${NGINX_IMAGE:-nginx:1.27-alpine}
@@ -77,7 +69,7 @@ docker compose up -d --build --remove-orphans
 log "Waiting for the database to become ready"
 db_ready=0
 for _ in $(seq 1 30); do
-  if docker compose exec -T postgres pg_isready -U "$postgres_user" -d "$postgres_db" >/dev/null 2>&1; then
+  if docker compose exec -T postgres pg_isready -U loveessay -d loveessay >/dev/null 2>&1; then
     db_ready=1
     break
   fi

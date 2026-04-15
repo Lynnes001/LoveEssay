@@ -8,8 +8,6 @@ services:
     environment:
       PORT: ${PORT:-8000}
     command: uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
-    volumes:
-      - ./backend:/app/backend:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -23,8 +21,6 @@ services:
     env_file:
       - .env
     command: celery -A tasks.celery_app.celery_app worker --loglevel=info --concurrency=${WORKER_CONCURRENCY:-4} --prefetch-multiplier=${WORKER_PREFETCH_MULTIPLIER:-1}
-    volumes:
-      - ./backend:/app/backend:ro
     depends_on:
       postgres:
         condition: service_healthy
