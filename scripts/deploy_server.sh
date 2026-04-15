@@ -38,6 +38,7 @@ if [ -n "${ACR_USERNAME:-}" ] && [ -n "${ACR_PASSWORD:-}" ] && [ -n "${POSTGRES_
   echo "${ACR_PASSWORD}" | docker login "${acr_registry}" -u "${ACR_USERNAME}" --password-stdin
 fi
 
+[ -n "${APP_IMAGE:-}" ] || die "APP_IMAGE must be set."
 [ -n "${APP_LOGIN_USER:-}" ] || die "APP_LOGIN_USER must be set."
 [ -n "${APP_LOGIN_PASS:-}" ] || die "APP_LOGIN_PASS must be set."
 
@@ -61,10 +62,11 @@ REDIS_URL=redis://redis:6379/0
 POSTGRES_IMAGE=${POSTGRES_IMAGE:-docker.1ms.run/postgres:16}
 REDIS_IMAGE=${REDIS_IMAGE:-docker.1ms.run/redis:7}
 NGINX_IMAGE=${NGINX_IMAGE:-docker.1ms.run/nginx:1.27-alpine}
+APP_IMAGE=${APP_IMAGE}
 EOF
 
 log "Bringing the stack up"
-docker compose up -d --build --remove-orphans
+docker compose pull && docker compose up -d --remove-orphans
 
 log "Waiting for the database to become ready"
 db_ready=0
